@@ -1,0 +1,3 @@
+#!/bin/bash
+cd /Users/efries/_DATA/code/whatsapp_mcp
+exec mix run --no-halt -e "WhatsappMcp.Server.start_link([])"
