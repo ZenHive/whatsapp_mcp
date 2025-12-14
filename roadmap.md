@@ -7,7 +7,7 @@ This roadmap extends the Elixir MCP server to integrate with the Go WhatsApp bri
 Before starting, ensure the Go bridge is set up:
 ```bash
 cd bridge
-go run main.go
+go run .
 # Scan QR code with WhatsApp mobile app
 # Bridge runs on http://localhost:8080
 ```
@@ -1160,7 +1160,7 @@ These tasks were identified from AI testing of the MCP tools.
 
 **Goal:** Automatically start the Go bridge when the MCP server starts, capturing logs and exposing the WhatsApp QR code for authentication - making setup completely self-contained.
 
-**Why:** Currently users must manually run `cd bridge && go run main.go` in a separate terminal before using the MCP server, and watch that terminal for the QR code on first run. Auto-starting with QR capture allows complete setup from within Claude Code.
+**Why:** Currently users must manually run `cd bridge && go run .` in a separate terminal before using the MCP server, and watch that terminal for the QR code on first run. Auto-starting with QR capture allows complete setup from within Claude Code.
 
 **Requirements:** Users need Go 1.21+ installed. The bridge source is included in the package and compiled on first run.
 
@@ -1270,7 +1270,7 @@ These tasks were identified from AI testing of the MCP tools.
 
      To start the WhatsApp bridge:
      1. Open a terminal
-     2. Run: cd /path/to/whatsapp_mcp/bridge && go run main.go
+     2. Run: cd /path/to/whatsapp_mcp/bridge && go run .
      3. Scan the QR code shown in the terminal with WhatsApp mobile app
      4. Keep the terminal open while using WhatsApp MCP
 

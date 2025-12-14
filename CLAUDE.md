@@ -54,7 +54,7 @@ mix run --no-halt     # Run as MCP server
 
 # Go Bridge (run in separate terminal)
 cd bridge
-go run main.go        # First run: scan QR code with WhatsApp mobile app
+go run .        # First run: scan QR code with WhatsApp mobile app
 
 # Reset bridge data (forces full resync, requires new QR scan)
 ./scripts/clean_bridge_store.sh
@@ -201,7 +201,7 @@ mix test --include sends_message      # + sends real WhatsApp messages (careful!
 - Send tests tagged with `@describetag :sends_message` (excluded by default)
 
 **Running integration tests:**
-1. Start the Go bridge (`cd bridge && go run main.go`)
+1. Start the Go bridge (`cd bridge && go run .`)
 2. Ensure QR code is scanned and bridge is connected
 3. Run `mix test --include integration`
 

@@ -17,7 +17,7 @@ defmodule WhatsappMcp.Tools.Formatters do
   def format_bridge_result({:ok, response}), do: {:ok, response}
 
   def format_bridge_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run main.go"}
+    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
   end
 
   def format_bridge_result({:error, :timeout}) do
@@ -44,7 +44,7 @@ defmodule WhatsappMcp.Tools.Formatters do
   end
 
   def format_download_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run main.go"}
+    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
   end
 
   def format_download_result({:error, :timeout}) do
@@ -97,7 +97,7 @@ defmodule WhatsappMcp.Tools.Formatters do
 
      To start the WhatsApp bridge:
      1. Open a terminal
-     2. Run: cd #{bridge_path} && go run main.go
+     2. Run: cd #{bridge_path} && go run .
      3. Scan the QR code shown in the terminal with WhatsApp mobile app
      4. Keep the terminal open while using WhatsApp MCP
 
@@ -383,7 +383,7 @@ defmodule WhatsappMcp.Tools.Formatters do
        - Windows: Download from https://go.dev/dl/
 
     2. Open a terminal and start the bridge:
-       cd #{bridge_path} && go run main.go
+       cd #{bridge_path} && go run .
 
     3. On first run, a QR code will appear in the terminal
        - Open WhatsApp on your phone
@@ -797,7 +797,7 @@ defmodule WhatsappMcp.Tools.Formatters do
   end
 
   def format_is_on_whatsapp_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run main.go"}
+    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
   end
 
   def format_is_on_whatsapp_result({:error, :timeout}) do
@@ -823,7 +823,7 @@ defmodule WhatsappMcp.Tools.Formatters do
   end
 
   def format_profile_picture_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run main.go"}
+    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
   end
 
   def format_profile_picture_result({:error, :timeout}) do
@@ -848,7 +848,7 @@ defmodule WhatsappMcp.Tools.Formatters do
   end
 
   def format_blocklist_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run main.go"}
+    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
   end
 
   def format_blocklist_result({:error, :timeout}) do
@@ -876,7 +876,7 @@ defmodule WhatsappMcp.Tools.Formatters do
   end
 
   def format_list_groups_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run main.go"}
+    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
   end
 
   def format_list_groups_result({:error, :timeout}) do
@@ -942,7 +942,7 @@ defmodule WhatsappMcp.Tools.Formatters do
   end
 
   def format_group_info_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run main.go"}
+    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
   end
 
   def format_group_info_result({:error, :timeout}) do
@@ -968,7 +968,7 @@ defmodule WhatsappMcp.Tools.Formatters do
   end
 
   def format_group_invite_link_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run main.go"}
+    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
   end
 
   def format_group_invite_link_result({:error, :timeout}) do
@@ -995,7 +995,7 @@ defmodule WhatsappMcp.Tools.Formatters do
   end
 
   def format_join_group_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run main.go"}
+    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
   end
 
   def format_join_group_result({:error, :timeout}) do
@@ -1029,7 +1029,7 @@ defmodule WhatsappMcp.Tools.Formatters do
   end
 
   def format_create_group_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run main.go"}
+    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
   end
 
   def format_create_group_result({:error, :timeout}) do
@@ -1051,7 +1051,7 @@ defmodule WhatsappMcp.Tools.Formatters do
   end
 
   def format_leave_group_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run main.go"}
+    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
   end
 
   def format_leave_group_result({:error, :timeout}) do
@@ -1097,7 +1097,7 @@ defmodule WhatsappMcp.Tools.Formatters do
   end
 
   def format_list_contacts_result({:error, :bridge_not_running}, _offset) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run main.go"}
+    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
   end
 
   def format_list_contacts_result({:error, :timeout}, _offset) do
@@ -1158,7 +1158,7 @@ defmodule WhatsappMcp.Tools.Formatters do
   end
 
   def format_merge_chats_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run main.go"}
+    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
   end
 
   def format_merge_chats_result({:error, :timeout}) do
@@ -1194,7 +1194,7 @@ defmodule WhatsappMcp.Tools.Formatters do
   end
 
   def format_update_participants_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run main.go"}
+    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
   end
 
   def format_update_participants_result({:error, :timeout}) do
@@ -1275,7 +1275,7 @@ defmodule WhatsappMcp.Tools.Formatters do
   end
 
   def format_privacy_settings_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run main.go"}
+    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
   end
 
   def format_privacy_settings_result({:error, :timeout}) do
@@ -1325,7 +1325,7 @@ defmodule WhatsappMcp.Tools.Formatters do
   end
 
   def format_business_profile_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run main.go"}
+    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
   end
 
   def format_business_profile_result({:error, :timeout}) do
@@ -1388,7 +1388,7 @@ defmodule WhatsappMcp.Tools.Formatters do
   end
 
   def format_list_newsletters_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run main.go"}
+    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
   end
 
   def format_list_newsletters_result({:error, :timeout}) do
@@ -1454,7 +1454,7 @@ defmodule WhatsappMcp.Tools.Formatters do
   end
 
   def format_newsletter_info_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run main.go"}
+    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
   end
 
   def format_newsletter_info_result({:error, :timeout}) do
@@ -1481,7 +1481,7 @@ defmodule WhatsappMcp.Tools.Formatters do
   end
 
   def format_newsletter_messages_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run main.go"}
+    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
   end
 
   def format_newsletter_messages_result({:error, :timeout}) do

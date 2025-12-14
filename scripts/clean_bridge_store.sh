@@ -56,5 +56,5 @@ rm -rf "$STORE_DIR"/*
 echo "Done. Bridge store has been cleaned."
 echo ""
 echo "Next steps:"
-echo "  1. cd bridge && go run main.go"
+echo "  1. cd bridge && go run ."
 echo "  2. Scan the QR code with your WhatsApp mobile app"

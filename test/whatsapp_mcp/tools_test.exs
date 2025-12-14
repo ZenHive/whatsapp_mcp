@@ -1372,7 +1372,7 @@ defmodule WhatsappMcp.ToolsTest do
 
       assert String.contains?(text, "Bridge Status: Not Running")
       assert String.contains?(text, "To start the WhatsApp bridge")
-      assert String.contains?(text, "go run main.go")
+      assert String.contains?(text, "go run .")
     end
   end
 

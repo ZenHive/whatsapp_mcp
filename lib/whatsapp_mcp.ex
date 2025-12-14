@@ -10,7 +10,7 @@ defmodule WhatsappMcp do
 
   1. Start the Go bridge (first time will show QR code):
 
-      cd bridge && go run main.go
+      cd bridge && go run .
 
   2. Scan the QR code with your WhatsApp mobile app
 

@@ -47,7 +47,7 @@ mix compile
 
 ```bash
 cd bridge
-go run main.go
+go run .
 ```
 
 On first run, scan the QR code with your WhatsApp mobile app (Settings > Linked Devices > Link a Device).
@@ -169,7 +169,7 @@ mix docs
 
 ### MCP server fails to connect
 
-1. Ensure the Go bridge is running (`cd bridge && go run main.go`)
+1. Ensure the Go bridge is running (`cd bridge && go run .`)
 2. Check that `bridge/store/messages.db` exists
 3. Restart Claude Code or run `/mcp` to reconnect
 

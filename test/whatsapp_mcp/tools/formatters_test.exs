@@ -47,7 +47,7 @@ defmodule WhatsappMcp.Tools.FormattersTest do
 
       assert String.contains?(text, "Bridge Status: Not Running")
       assert String.contains?(text, "To start the WhatsApp bridge")
-      assert String.contains?(text, "go run main.go")
+      assert String.contains?(text, "go run .")
       assert String.contains?(text, "brew install go")
     end
   end
