@@ -7,6 +7,7 @@ defmodule WhatsappMcp.Database.Chats do
 
   alias WhatsappMcp.Config
   alias WhatsappMcp.Database.Helpers
+  alias WhatsappMcp.Database.JidResolver
 
   # Public types
 
@@ -473,43 +474,10 @@ defmodule WhatsappMcp.Database.Chats do
 
   @spec do_get_linked_jid(String.t(), String.t()) :: {:ok, String.t() | nil} | {:error, term()}
   defp do_get_linked_jid(jid, db_path) do
-    cond do
-      String.ends_with?(jid, "@lid") -> get_phone_jid_for_lid(jid, db_path)
-      String.ends_with?(jid, "@s.whatsapp.net") -> get_lid_for_phone_jid(jid, db_path)
-      true -> {:ok, nil}
-    end
-  end
-
-  # For @lid JIDs, look up the cached phone to construct @s.whatsapp.net JID
-  @spec get_phone_jid_for_lid(String.t(), String.t()) :: {:ok, String.t() | nil} | {:error, term()}
-  defp get_phone_jid_for_lid(jid, db_path) do
-    query = "SELECT phone FROM contacts WHERE jid = ?"
-
-    case Helpers.with_readonly_connection(db_path, query, [jid]) do
-      {:ok, [[phone]]} when is_binary(phone) and phone != "" ->
-        {:ok, "#{phone}@s.whatsapp.net"}
-
-      {:ok, [[nil]]} ->
-        {:ok, nil}
-
-      {:ok, []} ->
-        {:ok, nil}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
-  end
-
-  # For @s.whatsapp.net JIDs, extract phone and look for @lid with same phone
-  @spec get_lid_for_phone_jid(String.t(), String.t()) :: {:ok, String.t() | nil} | {:error, term()}
-  defp get_lid_for_phone_jid(jid, db_path) do
-    phone = String.replace(jid, "@s.whatsapp.net", "")
-    query = "SELECT jid FROM contacts WHERE phone = ? AND jid LIKE '%@lid' LIMIT 1"
-
-    case Helpers.with_readonly_connection(db_path, query, [phone]) do
-      {:ok, [[lid_jid]]} -> {:ok, lid_jid}
-      {:ok, []} -> {:ok, nil}
-      {:error, reason} -> {:error, reason}
+    case JidResolver.jid_type(jid) do
+      :lid_jid -> JidResolver.phone_jid_for_lid(jid, db_path)
+      :phone_jid -> JidResolver.lid_for_phone_jid(jid, db_path)
+      _ -> {:ok, nil}
     end
   end
 end

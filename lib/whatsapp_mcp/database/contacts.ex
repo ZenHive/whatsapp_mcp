@@ -7,6 +7,7 @@ defmodule WhatsappMcp.Database.Contacts do
 
   alias WhatsappMcp.Config
   alias WhatsappMcp.Database.Helpers
+  alias WhatsappMcp.Database.JidResolver
 
   # Public types
 
@@ -369,114 +370,6 @@ defmodule WhatsappMcp.Database.Contacts do
 
   @spec do_find_linked_jids(String.t(), String.t()) :: {:ok, [String.t()]} | {:error, term()}
   defp do_find_linked_jids(jid, db_path) do
-    # Determine the JID type and extract phone number
-    {jid_type, phone} = parse_jid_for_linking(jid)
-
-    # Always start with the input JID
-    linked_jids = MapSet.new([jid])
-
-    # Find linked JIDs based on phone number
-    linked_jids =
-      case {jid_type, phone} do
-        {:phone_jid, phone} when is_binary(phone) ->
-          # Input is @s.whatsapp.net - look for @lid contacts with same phone
-          find_lid_by_phone(phone, db_path, linked_jids)
-
-        {:lid_jid, _} ->
-          # Input is @lid - look up cached phone and find @s.whatsapp.net
-          find_phone_jid_from_lid(jid, db_path, linked_jids)
-
-        {:group_jid, _} ->
-          # Groups don't have linked JIDs
-          linked_jids
-
-        {:unknown, _} ->
-          linked_jids
-      end
-
-    {:ok, MapSet.to_list(linked_jids)}
-  end
-
-  # Parse JID to determine type and extract phone number
-  @spec parse_jid_for_linking(String.t()) :: {:phone_jid | :lid_jid | :group_jid | :unknown, String.t() | nil}
-  defp parse_jid_for_linking(jid) do
-    cond do
-      String.ends_with?(jid, "@s.whatsapp.net") ->
-        phone = String.replace(jid, "@s.whatsapp.net", "")
-        {:phone_jid, phone}
-
-      String.ends_with?(jid, "@lid") ->
-        {:lid_jid, nil}
-
-      String.ends_with?(jid, "@g.us") ->
-        {:group_jid, nil}
-
-      true ->
-        {:unknown, nil}
-    end
-  end
-
-  # Find @lid JIDs that have the same phone number in the contacts cache
-  @spec find_lid_by_phone(String.t(), String.t(), MapSet.t()) :: MapSet.t()
-  defp find_lid_by_phone(phone, db_path, linked_jids) do
-    # Query contacts cache for @lid JIDs with matching phone
-    query = """
-    SELECT jid
-    FROM contacts
-    WHERE phone = ? AND jid LIKE '%@lid'
-    """
-
-    case Helpers.with_readonly_connection(db_path, query, [phone]) do
-      {:ok, rows} ->
-        Enum.reduce(rows, linked_jids, fn [lid_jid], acc ->
-          MapSet.put(acc, lid_jid)
-        end)
-
-      {:error, _} ->
-        linked_jids
-    end
-  end
-
-  # Find @s.whatsapp.net JID from @lid by looking up cached phone
-  @spec find_phone_jid_from_lid(String.t(), String.t(), MapSet.t()) :: MapSet.t()
-  defp find_phone_jid_from_lid(lid_jid, db_path, linked_jids) do
-    # First, look up the phone number for this LID in contacts cache
-    query = """
-    SELECT phone
-    FROM contacts
-    WHERE jid = ?
-    """
-
-    case Helpers.with_readonly_connection(db_path, query, [lid_jid]) do
-      {:ok, [[phone]]} when is_binary(phone) and phone != "" ->
-        # Found phone number - construct @s.whatsapp.net JID and add it
-        phone_jid = "#{phone}@s.whatsapp.net"
-        linked_jids = MapSet.put(linked_jids, phone_jid)
-
-        # Also check if this phone has a chat entry (may not be in contacts cache)
-        check_chat_exists(phone_jid, db_path, linked_jids)
-
-      {:ok, [[nil]]} ->
-        linked_jids
-
-      {:ok, []} ->
-        linked_jids
-
-      {:error, _} ->
-        linked_jids
-    end
-  end
-
-  # Check if a JID exists as a chat and add it if so
-  @spec check_chat_exists(String.t(), String.t(), MapSet.t()) :: MapSet.t()
-  defp check_chat_exists(jid, db_path, linked_jids) do
-    query = """
-    SELECT 1 FROM chats WHERE jid = ? LIMIT 1
-    """
-
-    case Helpers.with_readonly_connection(db_path, query, [jid]) do
-      {:ok, [[1]]} -> MapSet.put(linked_jids, jid)
-      _ -> linked_jids
-    end
+    JidResolver.find_all_linked_jids(jid, db_path)
   end
 end
