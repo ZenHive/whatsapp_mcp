@@ -8,6 +8,20 @@ defmodule WhatsappMcp.Tools.Formatters do
 
   alias WhatsappMcp.Database
 
+  # Shared helper for common bridge error formatting.
+  # Handles :bridge_not_running, :timeout, string errors, and fallback inspection.
+  @spec format_bridge_error({:error, term()}) :: {:error, String.t()}
+  defp format_bridge_error({:error, :bridge_not_running}) do
+    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
+  end
+
+  defp format_bridge_error({:error, :timeout}) do
+    {:error, "Request to WhatsApp bridge timed out"}
+  end
+
+  defp format_bridge_error({:error, reason}) when is_binary(reason), do: {:error, reason}
+  defp format_bridge_error({:error, reason}), do: {:error, inspect(reason)}
+
   # Bridge result formatters
 
   @doc """
@@ -15,14 +29,6 @@ defmodule WhatsappMcp.Tools.Formatters do
   """
   @spec format_bridge_result({:ok, String.t()} | {:error, term()}) :: {:ok, String.t()} | {:error, String.t()}
   def format_bridge_result({:ok, response}), do: {:ok, response}
-
-  def format_bridge_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
-  end
-
-  def format_bridge_result({:error, :timeout}) do
-    {:error, "Request to WhatsApp bridge timed out"}
-  end
 
   def format_bridge_result({:error, :file_not_found}) do
     {:error, "File not found. Please provide a valid absolute path to an existing file."}
@@ -32,8 +38,7 @@ defmodule WhatsappMcp.Tools.Formatters do
     {:error, "Invalid file path. Path must be absolute and cannot contain '..' traversal patterns."}
   end
 
-  def format_bridge_result({:error, reason}) when is_binary(reason), do: {:error, reason}
-  def format_bridge_result({:error, reason}), do: {:error, inspect(reason)}
+  def format_bridge_result(error), do: format_bridge_error(error)
 
   @doc """
   Formats a media download result.
@@ -43,16 +48,7 @@ defmodule WhatsappMcp.Tools.Formatters do
     {:ok, "Downloaded #{media_type}: #{filename}\nSaved to: #{path}"}
   end
 
-  def format_download_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
-  end
-
-  def format_download_result({:error, :timeout}) do
-    {:error, "Request to WhatsApp bridge timed out"}
-  end
-
-  def format_download_result({:error, reason}) when is_binary(reason), do: {:error, reason}
-  def format_download_result({:error, reason}), do: {:error, inspect(reason)}
+  def format_download_result(error), do: format_bridge_error(error)
 
   @doc """
   Formats bridge health check status.
@@ -796,16 +792,7 @@ defmodule WhatsappMcp.Tools.Formatters do
     {:ok, "WhatsApp Registration Status:\n\n" <> formatted <> summary}
   end
 
-  def format_is_on_whatsapp_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
-  end
-
-  def format_is_on_whatsapp_result({:error, :timeout}) do
-    {:error, "Request to WhatsApp bridge timed out"}
-  end
-
-  def format_is_on_whatsapp_result({:error, reason}) when is_binary(reason), do: {:error, reason}
-  def format_is_on_whatsapp_result({:error, reason}), do: {:error, inspect(reason)}
+  def format_is_on_whatsapp_result(error), do: format_bridge_error(error)
 
   defp format_whatsapp_result_line(result) do
     status = if result.is_on_whatsapp, do: "✓ Registered", else: "✗ Not registered"
@@ -822,16 +809,7 @@ defmodule WhatsappMcp.Tools.Formatters do
     {:ok, "Profile Picture:\nURL: #{url}\nID: #{id}\n\nNote: This URL is temporary and may expire."}
   end
 
-  def format_profile_picture_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
-  end
-
-  def format_profile_picture_result({:error, :timeout}) do
-    {:error, "Request to WhatsApp bridge timed out"}
-  end
-
-  def format_profile_picture_result({:error, reason}) when is_binary(reason), do: {:error, reason}
-  def format_profile_picture_result({:error, reason}), do: {:error, inspect(reason)}
+  def format_profile_picture_result(error), do: format_bridge_error(error)
 
   @doc """
   Formats the blocklist result.
@@ -847,16 +825,7 @@ defmodule WhatsappMcp.Tools.Formatters do
     end
   end
 
-  def format_blocklist_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
-  end
-
-  def format_blocklist_result({:error, :timeout}) do
-    {:error, "Request to WhatsApp bridge timed out"}
-  end
-
-  def format_blocklist_result({:error, reason}) when is_binary(reason), do: {:error, reason}
-  def format_blocklist_result({:error, reason}), do: {:error, inspect(reason)}
+  def format_blocklist_result(error), do: format_bridge_error(error)
 
   # Group tool formatters
 
@@ -875,16 +844,7 @@ defmodule WhatsappMcp.Tools.Formatters do
     end
   end
 
-  def format_list_groups_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
-  end
-
-  def format_list_groups_result({:error, :timeout}) do
-    {:error, "Request to WhatsApp bridge timed out"}
-  end
-
-  def format_list_groups_result({:error, reason}) when is_binary(reason), do: {:error, reason}
-  def format_list_groups_result({:error, reason}), do: {:error, inspect(reason)}
+  def format_list_groups_result(error), do: format_bridge_error(error)
 
   defp format_group_summary(group) do
     name = group["name"] || "(unnamed)"
@@ -941,16 +901,7 @@ defmodule WhatsappMcp.Tools.Formatters do
     {:ok, header <> topic_section <> settings_section <> participants_section <> hint}
   end
 
-  def format_group_info_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
-  end
-
-  def format_group_info_result({:error, :timeout}) do
-    {:error, "Request to WhatsApp bridge timed out"}
-  end
-
-  def format_group_info_result({:error, reason}) when is_binary(reason), do: {:error, reason}
-  def format_group_info_result({:error, reason}), do: {:error, inspect(reason)}
+  def format_group_info_result(error), do: format_bridge_error(error)
 
   @doc """
   Formats the get_group_invite_link result.
@@ -967,16 +918,7 @@ defmodule WhatsappMcp.Tools.Formatters do
      """}
   end
 
-  def format_group_invite_link_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
-  end
-
-  def format_group_invite_link_result({:error, :timeout}) do
-    {:error, "Request to WhatsApp bridge timed out"}
-  end
-
-  def format_group_invite_link_result({:error, reason}) when is_binary(reason), do: {:error, reason}
-  def format_group_invite_link_result({:error, reason}), do: {:error, inspect(reason)}
+  def format_group_invite_link_result(error), do: format_bridge_error(error)
 
   @doc """
   Formats the join_group result.
@@ -994,16 +936,7 @@ defmodule WhatsappMcp.Tools.Formatters do
      """}
   end
 
-  def format_join_group_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
-  end
-
-  def format_join_group_result({:error, :timeout}) do
-    {:error, "Request to WhatsApp bridge timed out"}
-  end
-
-  def format_join_group_result({:error, reason}) when is_binary(reason), do: {:error, reason}
-  def format_join_group_result({:error, reason}), do: {:error, inspect(reason)}
+  def format_join_group_result(error), do: format_bridge_error(error)
 
   @doc """
   Formats the create_group result from the Bridge.
@@ -1028,16 +961,7 @@ defmodule WhatsappMcp.Tools.Formatters do
      """}
   end
 
-  def format_create_group_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
-  end
-
-  def format_create_group_result({:error, :timeout}) do
-    {:error, "Request to WhatsApp bridge timed out"}
-  end
-
-  def format_create_group_result({:error, reason}) when is_binary(reason), do: {:error, reason}
-  def format_create_group_result({:error, reason}), do: {:error, inspect(reason)}
+  def format_create_group_result(error), do: format_bridge_error(error)
 
   @doc """
   Formats the leave_group result from the Bridge.
@@ -1050,16 +974,7 @@ defmodule WhatsappMcp.Tools.Formatters do
     {:ok, message}
   end
 
-  def format_leave_group_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
-  end
-
-  def format_leave_group_result({:error, :timeout}) do
-    {:error, "Request to WhatsApp bridge timed out"}
-  end
-
-  def format_leave_group_result({:error, reason}) when is_binary(reason), do: {:error, reason}
-  def format_leave_group_result({:error, reason}), do: {:error, inspect(reason)}
+  def format_leave_group_result(error), do: format_bridge_error(error)
 
   @doc """
   Formats the list_contacts result from the Bridge.
@@ -1096,21 +1011,7 @@ defmodule WhatsappMcp.Tools.Formatters do
     end
   end
 
-  def format_list_contacts_result({:error, :bridge_not_running}, _offset) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
-  end
-
-  def format_list_contacts_result({:error, :timeout}, _offset) do
-    {:error, "Request to WhatsApp bridge timed out"}
-  end
-
-  def format_list_contacts_result({:error, reason}, _offset) when is_binary(reason) do
-    {:error, reason}
-  end
-
-  def format_list_contacts_result({:error, reason}, _offset) do
-    {:error, inspect(reason)}
-  end
+  def format_list_contacts_result(error, _offset), do: format_bridge_error(error)
 
   defp format_contact_entry(contact) do
     jid = contact["jid"] || "unknown"
@@ -1157,16 +1058,7 @@ defmodule WhatsappMcp.Tools.Formatters do
     {:ok, "#{message}\n\nThe LID→phone link has been stored for future automatic resolution."}
   end
 
-  def format_merge_chats_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
-  end
-
-  def format_merge_chats_result({:error, :timeout}) do
-    {:error, "Request to WhatsApp bridge timed out"}
-  end
-
-  def format_merge_chats_result({:error, reason}) when is_binary(reason), do: {:error, reason}
-  def format_merge_chats_result({:error, reason}), do: {:error, inspect(reason)}
+  def format_merge_chats_result(error), do: format_bridge_error(error)
 
   @doc """
   Formats the update_group_participants result from the Bridge.
@@ -1193,16 +1085,7 @@ defmodule WhatsappMcp.Tools.Formatters do
     {:ok, result}
   end
 
-  def format_update_participants_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
-  end
-
-  def format_update_participants_result({:error, :timeout}) do
-    {:error, "Request to WhatsApp bridge timed out"}
-  end
-
-  def format_update_participants_result({:error, reason}) when is_binary(reason), do: {:error, reason}
-  def format_update_participants_result({:error, reason}), do: {:error, inspect(reason)}
+  def format_update_participants_result(error), do: format_bridge_error(error)
 
   defp format_group_settings_section(group) do
     [
@@ -1274,16 +1157,7 @@ defmodule WhatsappMcp.Tools.Formatters do
     {:ok, Enum.join(lines, "\n")}
   end
 
-  def format_privacy_settings_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
-  end
-
-  def format_privacy_settings_result({:error, :timeout}) do
-    {:error, "Request to WhatsApp bridge timed out"}
-  end
-
-  def format_privacy_settings_result({:error, reason}) when is_binary(reason), do: {:error, reason}
-  def format_privacy_settings_result({:error, reason}), do: {:error, inspect(reason)}
+  def format_privacy_settings_result(error), do: format_bridge_error(error)
 
   defp format_privacy_value(nil, _desc), do: "(not set)"
   defp format_privacy_value("", _desc), do: "(not set)"
@@ -1324,16 +1198,7 @@ defmodule WhatsappMcp.Tools.Formatters do
     {:ok, Enum.join(lines, "\n")}
   end
 
-  def format_business_profile_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
-  end
-
-  def format_business_profile_result({:error, :timeout}) do
-    {:error, "Request to WhatsApp bridge timed out"}
-  end
-
-  def format_business_profile_result({:error, reason}) when is_binary(reason), do: {:error, reason}
-  def format_business_profile_result({:error, reason}), do: {:error, inspect(reason)}
+  def format_business_profile_result(error), do: format_bridge_error(error)
 
   defp format_business_categories(nil), do: nil
   defp format_business_categories([]), do: nil
@@ -1387,16 +1252,7 @@ defmodule WhatsappMcp.Tools.Formatters do
     end
   end
 
-  def format_list_newsletters_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
-  end
-
-  def format_list_newsletters_result({:error, :timeout}) do
-    {:error, "Request to WhatsApp bridge timed out"}
-  end
-
-  def format_list_newsletters_result({:error, reason}) when is_binary(reason), do: {:error, reason}
-  def format_list_newsletters_result({:error, reason}), do: {:error, inspect(reason)}
+  def format_list_newsletters_result(error), do: format_bridge_error(error)
 
   defp format_newsletter_summary(newsletter) do
     name = newsletter["name"] || "(unnamed)"
@@ -1453,16 +1309,7 @@ defmodule WhatsappMcp.Tools.Formatters do
     {:ok, Enum.join(lines, "\n") <> hint}
   end
 
-  def format_newsletter_info_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
-  end
-
-  def format_newsletter_info_result({:error, :timeout}) do
-    {:error, "Request to WhatsApp bridge timed out"}
-  end
-
-  def format_newsletter_info_result({:error, reason}) when is_binary(reason), do: {:error, reason}
-  def format_newsletter_info_result({:error, reason}), do: {:error, inspect(reason)}
+  def format_newsletter_info_result(error), do: format_bridge_error(error)
 
   @doc """
   Formats the newsletter_messages result from the Bridge.
@@ -1480,16 +1327,7 @@ defmodule WhatsappMcp.Tools.Formatters do
     end
   end
 
-  def format_newsletter_messages_result({:error, :bridge_not_running}) do
-    {:error, "WhatsApp bridge is not running. Start the bridge with: cd bridge && go run ."}
-  end
-
-  def format_newsletter_messages_result({:error, :timeout}) do
-    {:error, "Request to WhatsApp bridge timed out"}
-  end
-
-  def format_newsletter_messages_result({:error, reason}) when is_binary(reason), do: {:error, reason}
-  def format_newsletter_messages_result({:error, reason}), do: {:error, inspect(reason)}
+  def format_newsletter_messages_result(error), do: format_bridge_error(error)
 
   defp format_newsletter_message(msg) do
     timestamp = msg["timestamp"] || "(unknown time)"

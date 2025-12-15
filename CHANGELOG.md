@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Consolidate duplicate bridge error handling in Formatters module into single `format_bridge_error/1` helper (162 lines removed, ~11% reduction)
 - Remove message content from bridge logs for privacy (now shows `[text]` or `[image]` instead)
 - Remove verbose contact/group name lookup logs for cleaner output
 - Improve history sync logging with sync type, progress percentage, and summary counts
