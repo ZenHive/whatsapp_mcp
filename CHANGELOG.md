@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
 - Store LID→phone number mappings from WhatsApp history sync for better contact resolution
-- Request full history sync with group history support (requires re-pairing to take effect)
+- Request full history sync with group history support (~13k messages synced vs ~580 before)
 
 ### Changed
 
