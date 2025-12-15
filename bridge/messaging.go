@@ -141,6 +141,7 @@ func createMediaProtoMessage(mediaType whatsmeow.MediaType, mimeType string, med
 		filename := extractFilename(mediaPath)
 		msg.DocumentMessage = &waProto.DocumentMessage{
 			Title:         proto.String(filename),
+			FileName:      proto.String(filename),
 			Caption:       proto.String(caption),
 			Mimetype:      proto.String(mimeType),
 			URL:           &resp.URL,
