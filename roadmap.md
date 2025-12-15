@@ -1881,4 +1881,24 @@ bridge/
 
 ---
 
+## Known Limitations
+
+### On-Demand History Sync (Not Supported)
+
+**Problem:** Message history doesn't sync until a contact sends a new message or the bridge is rebooted. Users expected to request older messages on demand.
+
+**Attempted Solution:** Use whatsmeow's `BuildHistorySyncRequest` to request history for sparse chats.
+
+**Result:** ❌ Does not work. WhatsApp's protocol does not support on-demand history requests.
+
+**Evidence:**
+- [tulir/whatsmeow#654](https://github.com/tulir/whatsmeow/issues/654) - "Requesting historical messages fail" - closed as "not planned"
+- [tulir/whatsmeow#422](https://github.com/tulir/whatsmeow/discussions/422) - "The conversations are pushed by the server during logon. As far as I know, there is no way to request more data for a specific conversation. Even the official WhatsApp Web interface has the same limitation: It shows a message 'Use WhatsApp on your phone to see earlier messages'."
+
+**Workaround:** Delete `bridge/store/` and re-scan QR code to get fresh history dump (limited to what WhatsApp sends during initial sync).
+
+**Code preserved:** `feature/history-sync-request` branch contains the implementation for future reference if WhatsApp/whatsmeow adds support.
+
+---
+
 **Completed: 49 tasks | Deferred: 1 task (DSL - revisit if adding REST/GraphQL) | Total: 50 tasks**
