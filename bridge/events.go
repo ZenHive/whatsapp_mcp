@@ -63,11 +63,11 @@ func handleMessage(ctx context.Context, client *whatsmeow.Client, messageStore *
 			direction = "→"
 		}
 
-		// Log based on message type
+		// Log message reception (without content for privacy)
 		if mediaType != "" {
-			fmt.Printf("[%s] %s %s: [%s: %s] %s\n", timestamp, direction, sender, mediaType, filename, content)
-		} else if content != "" {
-			fmt.Printf("[%s] %s %s: %s\n", timestamp, direction, sender, content)
+			fmt.Printf("[%s] %s %s: [%s]\n", timestamp, direction, sender, mediaType)
+		} else {
+			fmt.Printf("[%s] %s %s: [text]\n", timestamp, direction, sender)
 		}
 	}
 }
@@ -110,7 +110,34 @@ func determineSender(participant *string, keyParticipant *string, isFromMe bool,
 
 // handleHistorySync handles history sync events from WhatsApp
 func handleHistorySync(ctx context.Context, client *whatsmeow.Client, messageStore *MessageStore, historySync *events.HistorySync, logger waLog.Logger) {
-	fmt.Printf("Received history sync event with %d conversations\n", len(historySync.Data.Conversations))
+	// Log sync metadata for debugging
+	syncType := historySync.Data.GetSyncType().String()
+	progress := historySync.Data.GetProgress()
+	chunkOrder := historySync.Data.GetChunkOrder()
+	numConversations := len(historySync.Data.Conversations)
+	numLidMappings := len(historySync.Data.PhoneNumberToLidMappings)
+
+	fmt.Printf("📥 History sync: type=%s, progress=%d%%, chunk=%d, conversations=%d, LID mappings=%d\n",
+		syncType, progress, chunkOrder, numConversations, numLidMappings)
+
+	// Store LID → phone mappings if present (helps with contact resolution)
+	if numLidMappings > 0 {
+		storedMappings := 0
+		for _, mapping := range historySync.Data.PhoneNumberToLidMappings {
+			if mapping.PnJID != nil && mapping.LidJID != nil {
+				phone := *mapping.PnJID
+				lid := *mapping.LidJID
+				if err := messageStore.StoreLIDMapping(lid, phone); err != nil {
+					logger.Warnf("Failed to store LID mapping: %v", err)
+				} else {
+					storedMappings++
+				}
+			}
+		}
+		if storedMappings > 0 {
+			fmt.Printf("💾 Stored %d LID→phone mappings\n", storedMappings)
+		}
+	}
 
 	syncedCount := 0
 	clientUserID := client.Store.ID.User
@@ -186,15 +213,8 @@ func handleHistorySync(ctx context.Context, client *whatsmeow.Client, messageSto
 				continue
 			}
 			syncedCount++
-			if mediaType != "" {
-				logger.Infof("Stored message: [%s] %s -> %s: [%s: %s] %s",
-					timestamp.Format("2006-01-02 15:04:05"), sender, chatJID, mediaType, filename, content)
-			} else {
-				logger.Infof("Stored message: [%s] %s -> %s: %s",
-					timestamp.Format("2006-01-02 15:04:05"), sender, chatJID, content)
-			}
 		}
 	}
 
-	fmt.Printf("History sync complete. Stored %d messages.\n", syncedCount)
+	fmt.Printf("✅ History sync (%s) complete: stored %d messages from %d conversations\n", syncType, syncedCount, numConversations)
 }

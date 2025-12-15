@@ -275,3 +275,16 @@ func (store *MessageStore) GetBasicMediaInfo(messageID, chatJID string) (mediaTy
 	).Scan(&mediaType, &filename)
 	return
 }
+
+// StoreLIDMapping stores a LID → phone number mapping from WhatsApp's history sync
+func (store *MessageStore) StoreLIDMapping(lidJID, phoneJID string) error {
+	// Extract phone number from phoneJID (e.g., "14155554567@s.whatsapp.net" → "14155554567")
+	phone := strings.Split(phoneJID, "@")[0]
+
+	// Store or update the mapping
+	_, err := store.db.Exec(
+		"INSERT OR REPLACE INTO contacts (jid, phone, name, updated_at) VALUES (?, ?, COALESCE((SELECT name FROM contacts WHERE jid = ?), ''), ?)",
+		lidJID, phone, lidJID, time.Now().UTC(),
+	)
+	return err
+}

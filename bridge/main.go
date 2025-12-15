@@ -45,6 +45,14 @@ func main() {
 	store.DeviceProps.Os = proto.String(DeviceName)
 	store.DeviceProps.PlatformType = waProto.DeviceProps_DESKTOP.Enum()
 
+	// Configure history sync to request more data
+	// NOTE: These settings are sent during pairing and affect what WhatsApp sends
+	// Changing these after initial pairing requires deleting store/ and re-scanning QR
+	store.DeviceProps.RequireFullSync = proto.Bool(true) // Request full sync instead of recent only
+	if store.DeviceProps.HistorySyncConfig != nil {
+		store.DeviceProps.HistorySyncConfig.SupportGroupHistory = proto.Bool(true) // Include group history
+	}
+
 	// Get device store - This contains session information
 	deviceStore, err := container.GetFirstDevice(context.Background())
 	if err != nil {
