@@ -1546,6 +1546,56 @@ defmodule WhatsappMcp.Bridge do
     end
   end
 
+  # Generic response handler with custom success extractor.
+  #
+  # The extractor function is only called on successful responses (status 200
+  # with "success" => true). It receives the full response body map and should
+  # return {:ok, result} with the extracted data.
+  @spec handle_response_with_extractor(
+          {:ok, Req.Response.t()} | {:error, term()},
+          (map() -> {:ok, term()}),
+          String.t()
+        ) :: {:ok, term()} | {:error, atom() | String.t()}
+  defp handle_response_with_extractor(response, success_extractor, error_context) do
+    case response do
+      {:ok, %Req.Response{status: 200, body: %{"success" => true} = body}} ->
+        success_extractor.(body)
+
+      {:ok, %Req.Response{status: 200, body: %{"success" => false, "message" => message}}} ->
+        {:error, message}
+
+      {:ok, %Req.Response{status: 429, body: body}} ->
+        {:error, rate_limit_error(body)}
+
+      {:ok, %Req.Response{status: status, body: body}} when status in 400..599 ->
+        {:error, body_to_error(body, error_context)}
+
+      {:error, %Req.TransportError{reason: reason}} when reason in [:econnrefused, :closed] ->
+        {:error, :bridge_not_running}
+
+      {:error, %Req.TransportError{reason: :timeout}} ->
+        {:error, :timeout}
+
+      {:error, error} ->
+        Logger.debug("Bridge request failed: #{inspect(error)}")
+        {:error, inspect(error)}
+    end
+  end
+
+  # Simplified handler for responses that extract a single key
+  @spec handle_response_extract_key(
+          {:ok, Req.Response.t()} | {:error, term()},
+          String.t(),
+          String.t()
+        ) :: {:ok, term()} | {:error, atom() | String.t()}
+  defp handle_response_extract_key(response, key, error_context) do
+    handle_response_with_extractor(
+      response,
+      fn body -> {:ok, body[key]} end,
+      error_context
+    )
+  end
+
   defp handle_health_response({:ok, %Req.Response{status: 200, body: body}}) when is_map(body) do
     {:ok, body}
   end
@@ -1594,490 +1644,153 @@ defmodule WhatsappMcp.Bridge do
     {:error, inspect(error)}
   end
 
-  defp handle_download_response({:ok, %Req.Response{status: 200, body: %{"success" => true} = body}}) do
-    {:ok,
-     %{
-       path: body["path"],
-       filename: body["filename"],
-       media_type: extract_media_type(body["message"])
-     }}
+  defp handle_download_response(response) do
+    handle_response_with_extractor(
+      response,
+      fn body ->
+        {:ok,
+         %{
+           path: body["path"],
+           filename: body["filename"],
+           media_type: extract_media_type(body["message"])
+         }}
+      end,
+      "Download failed"
+    )
   end
 
-  defp handle_download_response({:ok, %Req.Response{status: 200, body: %{"success" => false, "message" => message}}}) do
-    {:error, message}
+  defp handle_resolve_response(response) do
+    handle_response_with_extractor(
+      response,
+      fn body -> {:ok, %{phone: body["phone"], name: body["name"]}} end,
+      "Failed to resolve LID"
+    )
+  end
+
+  defp handle_is_on_whatsapp_response(response) do
+    handle_response_with_extractor(
+      response,
+      fn body ->
+        parsed_results =
+          Enum.map(body["results"], fn result ->
+            %{
+              phone: result["phone"],
+              is_on_whatsapp: result["is_on_whatsapp"],
+              jid: if(result["is_on_whatsapp"], do: result["jid"])
+            }
+          end)
+
+        {:ok, parsed_results}
+      end,
+      "Failed to check phone numbers"
+    )
   end
 
-  defp handle_download_response({:ok, %Req.Response{status: status, body: body}}) when status in 400..599 do
-    {:error, body_to_error(body, "Download failed")}
+  defp handle_profile_picture_response(response) do
+    handle_response_with_extractor(
+      response,
+      fn body -> {:ok, %{url: body["url"], id: body["id"]}} end,
+      "Failed to get profile picture"
+    )
   end
 
-  defp handle_download_response({:error, %Req.TransportError{reason: reason}}) when reason in [:econnrefused, :closed] do
-    {:error, :bridge_not_running}
+  defp handle_blocklist_response(response) do
+    handle_response_extract_key(response, "blocklist", "Failed to get blocklist")
   end
 
-  defp handle_download_response({:error, %Req.TransportError{reason: :timeout}}) do
-    {:error, :timeout}
+  defp handle_list_groups_response(response) do
+    handle_response_extract_key(response, "groups", "Failed to list groups")
   end
 
-  defp handle_download_response({:error, error}) do
-    {:error, inspect(error)}
+  defp handle_group_info_response(response) do
+    handle_response_extract_key(response, "group", "Failed to get group info")
   end
 
-  defp handle_resolve_response({:ok, %Req.Response{status: 200, body: %{"success" => true} = body}}) do
-    {:ok, %{phone: body["phone"], name: body["name"]}}
+  defp handle_group_invite_link_response(response) do
+    handle_response_extract_key(response, "invite_link", "Failed to get invite link")
   end
 
-  defp handle_resolve_response({:ok, %Req.Response{status: 200, body: %{"success" => false, "message" => message}}}) do
-    {:error, message}
+  defp handle_join_group_response(response) do
+    handle_response_with_extractor(
+      response,
+      fn body -> {:ok, %{group_jid: body["group_jid"], message: body["message"]}} end,
+      "Failed to join group"
+    )
   end
 
-  defp handle_resolve_response({:ok, %Req.Response{status: status, body: body}}) when status in 400..499 do
-    {:error, body_to_error(body, "Invalid LID format")}
+  defp handle_create_group_response(response) do
+    handle_response_extract_key(response, "group", "Failed to create group")
   end
 
-  defp handle_resolve_response({:ok, %Req.Response{status: status, body: body}}) when status in 500..599 do
-    {:error, body_to_error(body, "Failed to resolve LID")}
+  defp handle_leave_group_response(response) do
+    handle_response_extract_key(response, "message", "Failed to leave group")
   end
 
-  defp handle_resolve_response({:error, %Req.TransportError{reason: reason}}) when reason in [:econnrefused, :closed] do
-    {:error, :bridge_not_running}
+  defp handle_list_contacts_response(response) do
+    handle_response_with_extractor(
+      response,
+      fn body -> {:ok, %{contacts: body["contacts"], total: body["total"]}} end,
+      "Failed to list contacts"
+    )
   end
 
-  defp handle_resolve_response({:error, %Req.TransportError{reason: :timeout}}) do
-    {:error, :timeout}
+  defp handle_merge_chats_response(response) do
+    handle_response_with_extractor(
+      response,
+      fn body -> {:ok, %{message: body["message"], messages_moved: body["messages_moved"]}} end,
+      "Failed to merge chats"
+    )
   end
 
-  defp handle_resolve_response({:error, error}) do
-    {:error, inspect(error)}
-  end
-
-  # is_on_whatsapp response handlers
-  defp handle_is_on_whatsapp_response({:ok, %Req.Response{status: 200, body: %{"success" => true, "results" => results}}}) do
-    parsed_results =
-      Enum.map(results, fn result ->
-        %{
-          phone: result["phone"],
-          is_on_whatsapp: result["is_on_whatsapp"],
-          jid: if(result["is_on_whatsapp"], do: result["jid"])
-        }
-      end)
-
-    {:ok, parsed_results}
-  end
-
-  defp handle_is_on_whatsapp_response(
-         {:ok, %Req.Response{status: 200, body: %{"success" => false, "message" => message}}}
-       ) do
-    {:error, message}
-  end
-
-  defp handle_is_on_whatsapp_response({:ok, %Req.Response{status: status, body: body}}) when status in 400..499 do
-    {:error, body_to_error(body, "Invalid request")}
-  end
-
-  defp handle_is_on_whatsapp_response({:ok, %Req.Response{status: status, body: body}}) when status in 500..599 do
-    {:error, body_to_error(body, "Failed to check phone numbers")}
-  end
-
-  defp handle_is_on_whatsapp_response({:error, %Req.TransportError{reason: reason}})
-       when reason in [:econnrefused, :closed] do
-    {:error, :bridge_not_running}
-  end
-
-  defp handle_is_on_whatsapp_response({:error, %Req.TransportError{reason: :timeout}}) do
-    {:error, :timeout}
-  end
-
-  defp handle_is_on_whatsapp_response({:error, error}) do
-    {:error, inspect(error)}
-  end
-
-  # profile_picture response handlers
-  defp handle_profile_picture_response({:ok, %Req.Response{status: 200, body: %{"success" => true} = body}}) do
-    {:ok, %{url: body["url"], id: body["id"]}}
-  end
-
-  defp handle_profile_picture_response(
-         {:ok, %Req.Response{status: 200, body: %{"success" => false, "message" => message}}}
-       ) do
-    {:error, message}
-  end
-
-  defp handle_profile_picture_response({:ok, %Req.Response{status: status, body: body}}) when status in 400..499 do
-    {:error, body_to_error(body, "Invalid request")}
-  end
-
-  defp handle_profile_picture_response({:ok, %Req.Response{status: status, body: body}}) when status in 500..599 do
-    {:error, body_to_error(body, "Failed to get profile picture")}
-  end
-
-  defp handle_profile_picture_response({:error, %Req.TransportError{reason: reason}})
-       when reason in [:econnrefused, :closed] do
-    {:error, :bridge_not_running}
-  end
-
-  defp handle_profile_picture_response({:error, %Req.TransportError{reason: :timeout}}) do
-    {:error, :timeout}
-  end
-
-  defp handle_profile_picture_response({:error, error}) do
-    {:error, inspect(error)}
-  end
-
-  # blocklist response handlers
-  defp handle_blocklist_response({:ok, %Req.Response{status: 200, body: %{"success" => true, "blocklist" => blocklist}}}) do
-    {:ok, blocklist}
-  end
-
-  defp handle_blocklist_response({:ok, %Req.Response{status: 200, body: %{"success" => false, "message" => message}}}) do
-    {:error, message}
-  end
-
-  defp handle_blocklist_response({:ok, %Req.Response{status: status, body: body}}) when status in 400..599 do
-    {:error, body_to_error(body, "Failed to get blocklist")}
-  end
-
-  defp handle_blocklist_response({:error, %Req.TransportError{reason: reason}}) when reason in [:econnrefused, :closed] do
-    {:error, :bridge_not_running}
-  end
-
-  defp handle_blocklist_response({:error, %Req.TransportError{reason: :timeout}}) do
-    {:error, :timeout}
-  end
-
-  defp handle_blocklist_response({:error, error}) do
-    {:error, inspect(error)}
-  end
-
-  # list_groups response handlers
-  defp handle_list_groups_response({:ok, %Req.Response{status: 200, body: %{"success" => true, "groups" => groups}}}) do
-    {:ok, groups}
-  end
-
-  defp handle_list_groups_response({:ok, %Req.Response{status: 200, body: %{"success" => false, "message" => message}}}) do
-    {:error, message}
-  end
-
-  defp handle_list_groups_response({:ok, %Req.Response{status: status, body: body}}) when status in 400..599 do
-    {:error, body_to_error(body, "Failed to list groups")}
-  end
-
-  defp handle_list_groups_response({:error, %Req.TransportError{reason: reason}})
-       when reason in [:econnrefused, :closed] do
-    {:error, :bridge_not_running}
-  end
-
-  defp handle_list_groups_response({:error, %Req.TransportError{reason: :timeout}}) do
-    {:error, :timeout}
-  end
-
-  defp handle_list_groups_response({:error, error}) do
-    {:error, inspect(error)}
-  end
-
-  # group_info response handlers
-  defp handle_group_info_response({:ok, %Req.Response{status: 200, body: %{"success" => true, "group" => group}}}) do
-    {:ok, group}
-  end
-
-  defp handle_group_info_response({:ok, %Req.Response{status: 200, body: %{"success" => false, "message" => message}}}) do
-    {:error, message}
-  end
-
-  defp handle_group_info_response({:ok, %Req.Response{status: status, body: body}}) when status in 400..499 do
-    {:error, body_to_error(body, "Invalid request")}
-  end
-
-  defp handle_group_info_response({:ok, %Req.Response{status: status, body: body}}) when status in 500..599 do
-    {:error, body_to_error(body, "Failed to get group info")}
-  end
-
-  defp handle_group_info_response({:error, %Req.TransportError{reason: reason}})
-       when reason in [:econnrefused, :closed] do
-    {:error, :bridge_not_running}
-  end
-
-  defp handle_group_info_response({:error, %Req.TransportError{reason: :timeout}}) do
-    {:error, :timeout}
-  end
-
-  defp handle_group_info_response({:error, error}) do
-    {:error, inspect(error)}
-  end
-
-  # group_invite_link response handlers
-  defp handle_group_invite_link_response(
-         {:ok, %Req.Response{status: 200, body: %{"success" => true, "invite_link" => invite_link}}}
-       ) do
-    {:ok, invite_link}
-  end
-
-  defp handle_group_invite_link_response(
-         {:ok, %Req.Response{status: 200, body: %{"success" => false, "message" => message}}}
-       ) do
-    {:error, message}
-  end
-
-  defp handle_group_invite_link_response({:ok, %Req.Response{status: status, body: body}}) when status in 400..499 do
-    {:error, body_to_error(body, "Invalid request")}
-  end
-
-  defp handle_group_invite_link_response({:ok, %Req.Response{status: status, body: body}}) when status in 500..599 do
-    {:error, body_to_error(body, "Failed to get invite link")}
-  end
-
-  defp handle_group_invite_link_response({:error, _} = error), do: handle_transport_error(error)
-
-  # join_group response handlers
-  defp handle_join_group_response(
-         {:ok, %Req.Response{status: 200, body: %{"success" => true, "group_jid" => group_jid, "message" => message}}}
-       ) do
-    {:ok, %{group_jid: group_jid, message: message}}
-  end
-
-  defp handle_join_group_response({:ok, %Req.Response{status: 200, body: %{"success" => false, "message" => message}}}) do
-    {:error, message}
-  end
+  defp handle_update_participants_response(response) do
+    handle_response_with_extractor(
+      response,
+      fn body ->
+        parsed_participants =
+          Enum.map(body["participants"], fn p ->
+            %{jid: p["jid"], error_code: p["error_code"] || 0}
+          end)
 
-  defp handle_join_group_response({:ok, %Req.Response{status: status, body: body}}) when status in 400..499 do
-    {:error, body_to_error(body, "Invalid request")}
+        {:ok, %{message: body["message"], participants: parsed_participants}}
+      end,
+      "Failed to update participants"
+    )
   end
 
-  defp handle_join_group_response({:ok, %Req.Response{status: status, body: body}}) when status in 500..599 do
-    {:error, body_to_error(body, "Failed to join group")}
+  defp handle_privacy_settings_response(response) do
+    handle_response_with_extractor(
+      response,
+      fn body ->
+        {:ok,
+         %{
+           group_add: body["group_add"],
+           last_seen: body["last_seen"],
+           status: body["status"],
+           profile: body["profile"],
+           read_receipts: body["read_receipts"],
+           online: body["online"],
+           call_add: body["call_add"]
+         }}
+      end,
+      "Failed to get privacy settings"
+    )
   end
 
-  defp handle_join_group_response({:error, _} = error), do: handle_transport_error(error)
-
-  # create_group response handlers
-  defp handle_create_group_response({:ok, %Req.Response{status: 200, body: %{"success" => true, "group" => group}}}) do
-    {:ok, group}
-  end
-
-  defp handle_create_group_response({:ok, %Req.Response{status: 200, body: %{"success" => false, "message" => message}}}) do
-    {:error, message}
-  end
-
-  defp handle_create_group_response({:ok, %Req.Response{status: status, body: body}}) when status in 400..499 do
-    {:error, body_to_error(body, "Invalid request")}
-  end
-
-  defp handle_create_group_response({:ok, %Req.Response{status: status, body: body}}) when status in 500..599 do
-    {:error, body_to_error(body, "Failed to create group")}
-  end
-
-  defp handle_create_group_response({:error, _} = error), do: handle_transport_error(error)
-
-  # leave_group response handlers
-  defp handle_leave_group_response({:ok, %Req.Response{status: 200, body: %{"success" => true, "message" => message}}}) do
-    {:ok, message}
-  end
-
-  defp handle_leave_group_response({:ok, %Req.Response{status: 200, body: %{"success" => false, "message" => message}}}) do
-    {:error, message}
-  end
-
-  defp handle_leave_group_response({:ok, %Req.Response{status: status, body: body}}) when status in 400..499 do
-    {:error, body_to_error(body, "Invalid request")}
-  end
-
-  defp handle_leave_group_response({:ok, %Req.Response{status: status, body: body}}) when status in 500..599 do
-    {:error, body_to_error(body, "Failed to leave group")}
-  end
-
-  defp handle_leave_group_response({:error, _} = error), do: handle_transport_error(error)
-
-  # list_contacts response handlers
-  defp handle_list_contacts_response(
-         {:ok, %Req.Response{status: 200, body: %{"success" => true, "contacts" => contacts, "total" => total}}}
-       ) do
-    {:ok, %{contacts: contacts, total: total}}
-  end
-
-  defp handle_list_contacts_response({:ok, %Req.Response{status: 200, body: %{"success" => false, "message" => message}}}) do
-    {:error, message}
-  end
-
-  defp handle_list_contacts_response({:ok, %Req.Response{status: status, body: body}}) when status in 400..599 do
-    {:error, body_to_error(body, "Failed to list contacts")}
-  end
-
-  defp handle_list_contacts_response({:error, %Req.TransportError{reason: reason}})
-       when reason in [:econnrefused, :closed] do
-    {:error, :bridge_not_running}
-  end
-
-  defp handle_list_contacts_response({:error, %Req.TransportError{reason: :timeout}}) do
-    {:error, :timeout}
-  end
-
-  defp handle_list_contacts_response({:error, error}) do
-    {:error, inspect(error)}
-  end
-
-  # merge_chats response handlers
-  defp handle_merge_chats_response(
-         {:ok,
-          %Req.Response{status: 200, body: %{"success" => true, "message" => message, "messages_moved" => messages_moved}}}
-       ) do
-    {:ok, %{message: message, messages_moved: messages_moved}}
-  end
-
-  defp handle_merge_chats_response({:ok, %Req.Response{status: 200, body: %{"success" => false, "message" => message}}}) do
-    {:error, message}
-  end
-
-  defp handle_merge_chats_response({:ok, %Req.Response{status: status, body: body}}) when status in 400..599 do
-    {:error, body_to_error(body, "Failed to merge chats")}
-  end
-
-  defp handle_merge_chats_response({:error, %Req.TransportError{reason: reason}})
-       when reason in [:econnrefused, :closed] do
-    {:error, :bridge_not_running}
-  end
-
-  defp handle_merge_chats_response({:error, %Req.TransportError{reason: :timeout}}) do
-    {:error, :timeout}
-  end
-
-  defp handle_merge_chats_response({:error, error}) do
-    {:error, inspect(error)}
+  defp handle_business_profile_response(response) do
+    handle_response_extract_key(response, "profile", "Failed to get business profile")
   end
 
-  # update_group_participants response handlers
-  defp handle_update_participants_response(
-         {:ok,
-          %Req.Response{status: 200, body: %{"success" => true, "message" => message, "participants" => participants}}}
-       ) do
-    parsed_participants =
-      Enum.map(participants, fn p ->
-        %{jid: p["jid"], error_code: p["error_code"] || 0}
-      end)
-
-    {:ok, %{message: message, participants: parsed_participants}}
-  end
-
-  defp handle_update_participants_response(
-         {:ok, %Req.Response{status: 200, body: %{"success" => false, "message" => message}}}
-       ) do
-    {:error, message}
-  end
-
-  defp handle_update_participants_response({:ok, %Req.Response{status: 429, body: body}}) do
-    {:error, rate_limit_error(body)}
-  end
-
-  defp handle_update_participants_response({:ok, %Req.Response{status: status, body: body}}) when status in 400..499 do
-    {:error, body_to_error(body, "Invalid request")}
-  end
-
-  defp handle_update_participants_response({:ok, %Req.Response{status: status, body: body}}) when status in 500..599 do
-    {:error, body_to_error(body, "Failed to update participants")}
-  end
-
-  defp handle_update_participants_response({:error, _} = error), do: handle_transport_error(error)
-
-  # privacy_settings response handlers
-  defp handle_privacy_settings_response({:ok, %Req.Response{status: 200, body: %{"success" => true} = body}}) do
-    {:ok,
-     %{
-       group_add: body["group_add"],
-       last_seen: body["last_seen"],
-       status: body["status"],
-       profile: body["profile"],
-       read_receipts: body["read_receipts"],
-       online: body["online"],
-       call_add: body["call_add"]
-     }}
-  end
-
-  defp handle_privacy_settings_response(
-         {:ok, %Req.Response{status: 200, body: %{"success" => false, "message" => message}}}
-       ) do
-    {:error, message}
-  end
-
-  defp handle_privacy_settings_response({:ok, %Req.Response{status: status, body: body}}) when status in 400..599 do
-    {:error, body_to_error(body, "Failed to get privacy settings")}
-  end
-
-  defp handle_privacy_settings_response({:error, _} = error), do: handle_transport_error(error)
-
-  # business_profile response handlers
-  defp handle_business_profile_response(
-         {:ok, %Req.Response{status: 200, body: %{"success" => true, "profile" => profile}}}
-       ) do
-    {:ok, profile}
-  end
-
-  defp handle_business_profile_response(
-         {:ok, %Req.Response{status: 200, body: %{"success" => false, "message" => message}}}
-       ) do
-    {:error, message}
-  end
-
-  defp handle_business_profile_response({:ok, %Req.Response{status: status, body: body}}) when status in 400..599 do
-    {:error, body_to_error(body, "Failed to get business profile")}
-  end
-
-  defp handle_business_profile_response({:error, _} = error), do: handle_transport_error(error)
-
-  # list_newsletters response handlers
-  defp handle_list_newsletters_response(
-         {:ok, %Req.Response{status: 200, body: %{"success" => true, "newsletters" => newsletters}}}
-       ) do
-    {:ok, newsletters}
-  end
-
-  defp handle_list_newsletters_response(
-         {:ok, %Req.Response{status: 200, body: %{"success" => false, "message" => message}}}
-       ) do
-    {:error, message}
-  end
-
-  defp handle_list_newsletters_response({:ok, %Req.Response{status: status, body: body}}) when status in 400..599 do
-    {:error, body_to_error(body, "Failed to list newsletters")}
+  defp handle_list_newsletters_response(response) do
+    handle_response_extract_key(response, "newsletters", "Failed to list newsletters")
   end
 
-  defp handle_list_newsletters_response({:error, _} = error), do: handle_transport_error(error)
-
-  # newsletter_info response handlers
-  defp handle_newsletter_info_response(
-         {:ok, %Req.Response{status: 200, body: %{"success" => true, "newsletter" => newsletter}}}
-       ) do
-    {:ok, newsletter}
-  end
-
-  defp handle_newsletter_info_response(
-         {:ok, %Req.Response{status: 200, body: %{"success" => false, "message" => message}}}
-       ) do
-    {:error, message}
-  end
-
-  defp handle_newsletter_info_response({:ok, %Req.Response{status: status, body: body}}) when status in 400..599 do
-    {:error, body_to_error(body, "Failed to get newsletter info")}
+  defp handle_newsletter_info_response(response) do
+    handle_response_extract_key(response, "newsletter", "Failed to get newsletter info")
   end
 
-  defp handle_newsletter_info_response({:error, _} = error), do: handle_transport_error(error)
-
-  # newsletter_messages response handlers
-  defp handle_newsletter_messages_response(
-         {:ok, %Req.Response{status: 200, body: %{"success" => true, "messages" => messages}}}
-       ) do
-    {:ok, messages}
-  end
-
-  defp handle_newsletter_messages_response(
-         {:ok, %Req.Response{status: 200, body: %{"success" => false, "message" => message}}}
-       ) do
-    {:error, message}
+  defp handle_newsletter_messages_response(response) do
+    handle_response_extract_key(response, "messages", "Failed to get newsletter messages")
   end
-
-  defp handle_newsletter_messages_response({:ok, %Req.Response{status: status, body: body}}) when status in 400..599 do
-    {:error, body_to_error(body, "Failed to get newsletter messages")}
-  end
-
-  defp handle_newsletter_messages_response({:error, _} = error), do: handle_transport_error(error)
 
   defp body_to_error(%{"message" => message}, _default), do: message
   defp body_to_error(body, _default) when is_binary(body), do: body
@@ -2087,19 +1800,6 @@ defmodule WhatsappMcp.Bridge do
     do: "Rate limited by WhatsApp: #{message}. Wait a few minutes before retrying."
 
   defp rate_limit_error(_body), do: "Rate limited by WhatsApp. Wait a few minutes before retrying."
-
-  # Shared transport error handler - handles connection and timeout errors
-  defp handle_transport_error({:error, %Req.TransportError{reason: reason}}) when reason in [:econnrefused, :closed] do
-    {:error, :bridge_not_running}
-  end
-
-  defp handle_transport_error({:error, %Req.TransportError{reason: :timeout}}) do
-    {:error, :timeout}
-  end
-
-  defp handle_transport_error({:error, error}) do
-    {:error, inspect(error)}
-  end
 
   # Extract media type from success message like "Successfully downloaded image media"
   defp extract_media_type(message) when is_binary(message) do
