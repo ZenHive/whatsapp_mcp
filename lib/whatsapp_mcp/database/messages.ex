@@ -380,64 +380,66 @@ defmodule WhatsappMcp.Database.Messages do
 
         [[id, chat_jid, timestamp, sender, text, is_from_me, media_type]] ->
           target_msg = build_message(id, timestamp, sender, text, is_from_me, media_type)
-
-          # Get messages before (older timestamps in the same chat)
-          # Join with chats to resolve sender names
-          before_query = """
-          SELECT
-            m.id,
-            m.timestamp as timestamp_str,
-            COALESCE(sender_chat.name, m.sender, CASE WHEN m.is_from_me = 1 THEN 'Me' ELSE 'Unknown' END) as sender,
-            m.content as text,
-            m.is_from_me,
-            m.media_type
-          FROM messages m
-          LEFT JOIN chats sender_chat ON m.sender = sender_chat.jid
-          WHERE m.chat_jid = ?
-            AND m.timestamp < ?
-            AND m.content IS NOT NULL
-          ORDER BY m.timestamp DESC
-          LIMIT ?
-          """
-
-          # Get messages after (newer timestamps in the same chat)
-          after_query = """
-          SELECT
-            m.id,
-            m.timestamp as timestamp_str,
-            COALESCE(sender_chat.name, m.sender, CASE WHEN m.is_from_me = 1 THEN 'Me' ELSE 'Unknown' END) as sender,
-            m.content as text,
-            m.is_from_me,
-            m.media_type
-          FROM messages m
-          LEFT JOIN chats sender_chat ON m.sender = sender_chat.jid
-          WHERE m.chat_jid = ?
-            AND m.timestamp > ?
-            AND m.content IS NOT NULL
-          ORDER BY m.timestamp ASC
-          LIMIT ?
-          """
-
-          with {:ok, before_rows} <-
-                 Helpers.with_readonly_connection(db_path, before_query, [chat_jid, timestamp, before_count]),
-               {:ok, after_rows} <-
-                 Helpers.with_readonly_connection(db_path, after_query, [chat_jid, timestamp, after_count]) do
-            before_msgs =
-              before_rows
-              |> Enum.map(&row_to_message/1)
-              |> Enum.reverse()
-
-            after_msgs = Enum.map(after_rows, &row_to_message/1)
-
-            {:ok,
-             %{
-               target: target_msg,
-               before: before_msgs,
-               after: after_msgs,
-               chat_jid: chat_jid
-             }}
-          end
+          fetch_context_window(target_msg, chat_jid, timestamp, before_count, after_count, db_path)
       end
+    end
+  end
+
+  # Fetches the before/after message window around a target message and
+  # assembles the context result. Extracted from do_get_message_context/4 to
+  # keep the surrounding with/case nesting within the depth limit.
+  @spec fetch_context_window(map(), String.t(), integer(), integer(), integer(), String.t()) ::
+          {:ok, map()} | {:error, term()}
+  defp fetch_context_window(target_msg, chat_jid, timestamp, before_count, after_count, db_path) do
+    # Get messages before (older timestamps in the same chat)
+    # Join with chats to resolve sender names
+    before_query = """
+    SELECT
+      m.id,
+      m.timestamp as timestamp_str,
+      COALESCE(sender_chat.name, m.sender, CASE WHEN m.is_from_me = 1 THEN 'Me' ELSE 'Unknown' END) as sender,
+      m.content as text,
+      m.is_from_me,
+      m.media_type
+    FROM messages m
+    LEFT JOIN chats sender_chat ON m.sender = sender_chat.jid
+    WHERE m.chat_jid = ?
+      AND m.timestamp < ?
+      AND m.content IS NOT NULL
+    ORDER BY m.timestamp DESC
+    LIMIT ?
+    """
+
+    # Get messages after (newer timestamps in the same chat)
+    after_query = """
+    SELECT
+      m.id,
+      m.timestamp as timestamp_str,
+      COALESCE(sender_chat.name, m.sender, CASE WHEN m.is_from_me = 1 THEN 'Me' ELSE 'Unknown' END) as sender,
+      m.content as text,
+      m.is_from_me,
+      m.media_type
+    FROM messages m
+    LEFT JOIN chats sender_chat ON m.sender = sender_chat.jid
+    WHERE m.chat_jid = ?
+      AND m.timestamp > ?
+      AND m.content IS NOT NULL
+    ORDER BY m.timestamp ASC
+    LIMIT ?
+    """
+
+    with {:ok, before_rows} <-
+           Helpers.with_readonly_connection(db_path, before_query, [chat_jid, timestamp, before_count]),
+         {:ok, after_rows} <-
+           Helpers.with_readonly_connection(db_path, after_query, [chat_jid, timestamp, after_count]) do
+      before_msgs =
+        before_rows
+        |> Enum.map(&row_to_message/1)
+        |> Enum.reverse()
+
+      after_msgs = Enum.map(after_rows, &row_to_message/1)
+
+      {:ok, %{target: target_msg, before: before_msgs, after: after_msgs, chat_jid: chat_jid}}
     end
   end
 
@@ -465,27 +467,26 @@ defmodule WhatsappMcp.Database.Messages do
           {:ok, [map()]} | {:error, term()}
   defp execute_message_query_with_source(query, params, primary_jid, db_path) do
     with {:ok, rows} <- Helpers.with_readonly_connection(db_path, query, params) do
-      messages =
-        Enum.map(rows, fn [timestamp, sender, text, is_from_me, media_type, id, source_jid] ->
-          msg = %{
-            id: id,
-            timestamp: timestamp,
-            sender: sender,
-            text: Helpers.clean_message(text),
-            is_from_me: is_from_me == 1,
-            media_type: media_type
-          }
-
-          # Only include source_jid if it differs from the primary chat JID
-          if source_jid == primary_jid do
-            msg
-          else
-            Map.put(msg, :source_jid, source_jid)
-          end
-        end)
-
-      {:ok, messages}
+      {:ok, Enum.map(rows, &build_source_message(&1, primary_jid))}
     end
+  end
+
+  # Builds a merged-view message map, including :source_jid only when it differs
+  # from the primary chat JID. Extracted from execute_message_query_with_source/4
+  # to keep the with/map/if nesting within the depth limit.
+  @spec build_source_message([term()], String.t()) :: map()
+  defp build_source_message([timestamp, sender, text, is_from_me, media_type, id, source_jid], primary_jid) do
+    msg = %{
+      id: id,
+      timestamp: timestamp,
+      sender: sender,
+      text: Helpers.clean_message(text),
+      is_from_me: is_from_me == 1,
+      media_type: media_type
+    }
+
+    # Only include source_jid if it differs from the primary chat JID
+    if source_jid == primary_jid, do: msg, else: Map.put(msg, :source_jid, source_jid)
   end
 
   @spec count_messages_by_jid(String.t(), String.t() | nil, String.t() | nil, String.t()) ::

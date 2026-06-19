@@ -41,26 +41,40 @@ defmodule WhatsappMcpTest do
   end
 
   describe "Tools.list_tools/0" do
-    test "returns list of available tools" do
+    test "returns wrapper tools for lazy discovery" do
       tools = Tools.list_tools()
 
       assert is_list(tools)
-      assert length(tools) >= 5
+      # Only 3 wrapper tools exposed to minimize token overhead
+      assert length(tools) == 3
 
       tool_names = Enum.map(tools, & &1["name"])
-      assert "list_chats" in tool_names
-      assert "get_messages" in tool_names
-      assert "search_messages" in tool_names
-      assert "send_message" in tool_names
-      assert "send_file" in tool_names
+      assert "tool_list" in tool_names
+      assert "tool_get" in tool_names
+      assert "tool_call" in tool_names
     end
 
-    test "each tool has required MCP fields" do
+    test "each wrapper tool has required MCP fields" do
       for tool <- Tools.list_tools() do
         assert Map.has_key?(tool, "name")
         assert Map.has_key?(tool, "description")
         assert Map.has_key?(tool, "inputSchema")
       end
+    end
+  end
+
+  describe "Tools.list_tool_names/0" do
+    test "returns all available tool names" do
+      tool_names = Tools.list_tool_names()
+
+      assert is_list(tool_names)
+      assert length(tool_names) >= 5
+
+      assert "list_chats" in tool_names
+      assert "get_messages" in tool_names
+      assert "search_messages" in tool_names
+      assert "send_message" in tool_names
+      assert "send_file" in tool_names
     end
   end
 

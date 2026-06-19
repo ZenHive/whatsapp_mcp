@@ -12,10 +12,119 @@ defmodule WhatsappMcp.ToolsTest do
     tmp_path
   end
 
-  describe "list_tools/0" do
-    test "list_chats tool includes offset parameter for pagination" do
+  describe "list_tools/0 - wrapper tools" do
+    test "returns only wrapper tools for lazy discovery" do
       tools = Tools.list_tools()
-      list_chats_tool = Enum.find(tools, &(&1["name"] == "list_chats"))
+      tool_names = Enum.map(tools, & &1["name"])
+
+      assert length(tools) == 3
+      assert "tool_list" in tool_names
+      assert "tool_get" in tool_names
+      assert "tool_call" in tool_names
+    end
+
+    test "tool_list has correct schema" do
+      tools = Tools.list_tools()
+      tool_list = Enum.find(tools, &(&1["name"] == "tool_list"))
+
+      assert tool_list
+      assert tool_list["description"] =~ "List available WhatsApp tools"
+      schema = tool_list["inputSchema"]
+      assert Map.has_key?(schema["properties"], "category")
+    end
+
+    test "tool_get has correct schema" do
+      tools = Tools.list_tools()
+      tool_get = Enum.find(tools, &(&1["name"] == "tool_get"))
+
+      assert tool_get
+      assert tool_get["description"] =~ "Get full schema"
+      schema = tool_get["inputSchema"]
+      assert schema["required"] == ["name"]
+    end
+
+    test "tool_call has correct schema" do
+      tools = Tools.list_tools()
+      tool_call = Enum.find(tools, &(&1["name"] == "tool_call"))
+
+      assert tool_call
+      assert tool_call["description"] =~ "Execute a WhatsApp tool"
+      schema = tool_call["inputSchema"]
+      assert schema["required"] == ["name"]
+      assert Map.has_key?(schema["properties"], "arguments")
+    end
+  end
+
+  describe "call_tool/3 - wrapper dispatch (lazy discovery)" do
+    test "tool_list returns formatted tool summaries" do
+      assert {:ok, text} = Tools.call_tool("tool_list", %{}, [])
+      assert text =~ "Available WhatsApp Tools"
+      assert text =~ "list_chats"
+    end
+
+    test "tool_list filters by category" do
+      assert {:ok, text} = Tools.call_tool("tool_list", %{"category" => "groups"}, [])
+      assert text =~ "Groups"
+      assert text =~ "list_groups"
+    end
+
+    test "tool_get returns full schema for a valid tool" do
+      assert {:ok, text} = Tools.call_tool("tool_get", %{"name" => "send_message"}, [])
+      assert text =~ "send_message"
+      assert text =~ "Parameters"
+    end
+
+    test "tool_get requires a name" do
+      assert {:error, "name parameter is required"} = Tools.call_tool("tool_get", %{}, [])
+
+      assert {:error, "name parameter is required"} =
+               Tools.call_tool("tool_get", %{"name" => ""}, [])
+    end
+
+    test "tool_get rejects an unknown tool" do
+      assert {:error, reason} = Tools.call_tool("tool_get", %{"name" => "nope"}, [])
+      assert reason =~ "Unknown tool: nope"
+    end
+
+    test "tool_call dispatches to the named tool" do
+      # get_help is the explicitly-recommended entry tool and is reachable
+      # only via tool_call under lazy discovery — regression guard for the
+      # missing /3 clause that crashed the server.
+      assert {:ok, text} = Tools.call_tool("tool_call", %{"name" => "get_help"}, [])
+      assert is_binary(text)
+    end
+
+    test "tool_call requires a name" do
+      assert {:error, "name parameter is required"} = Tools.call_tool("tool_call", %{}, [])
+
+      assert {:error, "name parameter is required"} =
+               Tools.call_tool("tool_call", %{"name" => ""}, [])
+    end
+
+    test "tool_call rejects an unknown tool" do
+      assert {:error, reason} = Tools.call_tool("tool_call", %{"name" => "nope"}, [])
+      assert reason =~ "Unknown tool: nope"
+    end
+
+    test "call_tool/3 returns an error tuple for an unregistered tool rather than crashing" do
+      assert {:error, reason} = Tools.call_tool("does_not_exist", %{}, [])
+      assert reason =~ "Unknown tool: does_not_exist"
+    end
+
+    test "tool_call coerces a non-map arguments value to an empty map instead of crashing" do
+      # A misbehaving client may send a JSON string/list for "arguments".
+      # Without the is_map guard this reaches the handler's arguments["key"]
+      # and raises an Access protocol error, crashing the GenServer.
+      assert {:error, reason} =
+               Tools.call_tool("tool_call", %{"name" => "send_message", "arguments" => "oops"}, [])
+
+      assert is_binary(reason)
+    end
+  end
+
+  describe "get_tool/1 - tool registry" do
+    test "list_chats tool includes offset parameter for pagination" do
+      list_chats_tool = Tools.get_tool("list_chats")
 
       assert list_chats_tool
       schema = list_chats_tool["inputSchema"]
@@ -25,8 +134,7 @@ defmodule WhatsappMcp.ToolsTest do
     end
 
     test "get_messages tool includes offset parameter for pagination" do
-      tools = Tools.list_tools()
-      get_messages_tool = Enum.find(tools, &(&1["name"] == "get_messages"))
+      get_messages_tool = Tools.get_tool("get_messages")
 
       assert get_messages_tool
       schema = get_messages_tool["inputSchema"]
@@ -36,8 +144,7 @@ defmodule WhatsappMcp.ToolsTest do
     end
 
     test "includes send_message tool" do
-      tools = Tools.list_tools()
-      send_message_tool = Enum.find(tools, &(&1["name"] == "send_message"))
+      send_message_tool = Tools.get_tool("send_message")
 
       assert send_message_tool
       assert send_message_tool["description"] == "Send a WhatsApp message to a person or group."
@@ -47,6 +154,10 @@ defmodule WhatsappMcp.ToolsTest do
       assert schema["required"] == ["recipient", "message"]
       assert Map.has_key?(schema["properties"], "recipient")
       assert Map.has_key?(schema["properties"], "message")
+    end
+
+    test "returns nil for unknown tool" do
+      assert Tools.get_tool("unknown_tool") == nil
     end
   end
 
@@ -131,10 +242,9 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 send_file tool" do
+  describe "get_tool/1 send_file tool" do
     test "includes send_file tool definition" do
-      tools = Tools.list_tools()
-      send_file_tool = Enum.find(tools, &(&1["name"] == "send_file"))
+      send_file_tool = Tools.get_tool("send_file")
 
       assert send_file_tool
       assert send_file_tool["description"] == "Send a file (image, video, document) via WhatsApp."
@@ -290,10 +400,9 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 send_audio_message tool" do
+  describe "get_tool/1 send_audio_message tool" do
     test "includes send_audio_message tool definition" do
-      tools = Tools.list_tools()
-      send_audio_tool = Enum.find(tools, &(&1["name"] == "send_audio_message"))
+      send_audio_tool = Tools.get_tool("send_audio_message")
 
       assert send_audio_tool
       assert String.contains?(send_audio_tool["description"], "voice message")
@@ -458,15 +567,14 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 download_media tool" do
+  describe "get_tool/1 download_media tool" do
     test "includes download_media tool definition" do
-      tools = Tools.list_tools()
-      download_media_tool = Enum.find(tools, &(&1["name"] == "download_media"))
+      tool = Tools.get_tool("download_media")
 
-      assert download_media_tool
-      assert String.contains?(download_media_tool["description"], "Download media")
+      assert tool
+      assert String.contains?(tool["description"], "Download media")
 
-      schema = download_media_tool["inputSchema"]
+      schema = tool["inputSchema"]
       assert schema["type"] == "object"
       assert schema["required"] == ["message_id", "chat_jid"]
       assert Map.has_key?(schema["properties"], "message_id")
@@ -643,15 +751,14 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 search_contacts tool" do
+  describe "get_tool/1 search_contacts tool" do
     test "includes search_contacts tool definition" do
-      tools = Tools.list_tools()
-      search_contacts_tool = Enum.find(tools, &(&1["name"] == "search_contacts"))
+      tool = Tools.get_tool("search_contacts")
 
-      assert search_contacts_tool
-      assert String.contains?(search_contacts_tool["description"], "Search WhatsApp contacts")
+      assert tool
+      assert String.contains?(tool["description"], "Search WhatsApp contacts")
 
-      schema = search_contacts_tool["inputSchema"]
+      schema = tool["inputSchema"]
       assert schema["type"] == "object"
       assert schema["required"] == ["query"]
       assert Map.has_key?(schema["properties"], "query")
@@ -711,30 +818,28 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 get_chat tool" do
+  describe "get_tool/1 get_chat tool" do
     test "includes get_chat tool definition" do
-      tools = Tools.list_tools()
-      get_chat_tool = Enum.find(tools, &(&1["name"] == "get_chat"))
+      tool = Tools.get_tool("get_chat")
 
-      assert get_chat_tool
-      assert String.contains?(get_chat_tool["description"], "metadata")
+      assert tool
+      assert String.contains?(tool["description"], "metadata")
 
-      schema = get_chat_tool["inputSchema"]
+      schema = tool["inputSchema"]
       assert schema["type"] == "object"
       assert schema["required"] == ["jid"]
       assert Map.has_key?(schema["properties"], "jid")
     end
   end
 
-  describe "list_tools/0 get_direct_chat_by_contact tool" do
+  describe "get_tool/1 get_direct_chat_by_contact tool" do
     test "includes get_direct_chat_by_contact tool definition" do
-      tools = Tools.list_tools()
-      get_direct_chat_tool = Enum.find(tools, &(&1["name"] == "get_direct_chat_by_contact"))
+      tool = Tools.get_tool("get_direct_chat_by_contact")
 
-      assert get_direct_chat_tool
-      assert String.contains?(get_direct_chat_tool["description"], "phone")
+      assert tool
+      assert String.contains?(tool["description"], "phone")
 
-      schema = get_direct_chat_tool["inputSchema"]
+      schema = tool["inputSchema"]
       assert schema["type"] == "object"
       assert schema["required"] == ["phone"]
       assert Map.has_key?(schema["properties"], "phone")
@@ -805,15 +910,14 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 get_message_context tool" do
+  describe "get_tool/1 get_message_context tool" do
     test "includes get_message_context tool definition" do
-      tools = Tools.list_tools()
-      get_context_tool = Enum.find(tools, &(&1["name"] == "get_message_context"))
+      tool = Tools.get_tool("get_message_context")
 
-      assert get_context_tool
-      assert String.contains?(get_context_tool["description"], "context")
+      assert tool
+      assert String.contains?(tool["description"], "context")
 
-      schema = get_context_tool["inputSchema"]
+      schema = tool["inputSchema"]
       assert schema["type"] == "object"
       assert schema["required"] == ["message_id"]
       assert Map.has_key?(schema["properties"], "message_id")
@@ -1002,10 +1106,9 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 get_last_interaction tool" do
+  describe "get_tool/1 get_last_interaction tool" do
     test "includes get_last_interaction tool definition" do
-      tools = Tools.list_tools()
-      tool = Enum.find(tools, &(&1["name"] == "get_last_interaction"))
+      tool = Tools.get_tool("get_last_interaction")
 
       assert tool
       assert String.contains?(tool["description"], "most recent message")
@@ -1017,10 +1120,9 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 get_contact_chats tool" do
+  describe "get_tool/1 get_contact_chats tool" do
     test "includes get_contact_chats tool definition" do
-      tools = Tools.list_tools()
-      tool = Enum.find(tools, &(&1["name"] == "get_contact_chats"))
+      tool = Tools.get_tool("get_contact_chats")
 
       assert tool
       assert String.contains?(tool["description"], "chats involving a contact")
@@ -1311,10 +1413,9 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 get_bridge_status tool" do
+  describe "get_tool/1 get_bridge_status tool" do
     test "includes get_bridge_status tool definition" do
-      tools = Tools.list_tools()
-      tool = Enum.find(tools, &(&1["name"] == "get_bridge_status"))
+      tool = Tools.get_tool("get_bridge_status")
 
       assert tool
       assert String.contains?(tool["description"], "bridge is running")
@@ -1376,10 +1477,9 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 get_help tool" do
+  describe "get_tool/1 get_help tool" do
     test "includes get_help tool definition" do
-      tools = Tools.list_tools()
-      tool = Enum.find(tools, &(&1["name"] == "get_help"))
+      tool = Tools.get_tool("get_help")
 
       assert tool
       assert String.contains?(tool["description"], "phone number formats")
@@ -1628,10 +1728,9 @@ defmodule WhatsappMcp.ToolsTest do
   # New Messaging Action Tools (Tasks 23-27)
   # ============================================================================
 
-  describe "list_tools/0 send_typing tool" do
+  describe "get_tool/1 send_typing tool" do
     test "includes send_typing tool definition" do
-      tools = Tools.list_tools()
-      tool = Enum.find(tools, &(&1["name"] == "send_typing"))
+      tool = Tools.get_tool("send_typing")
 
       assert tool
       assert String.contains?(tool["description"], "typing indicator")
@@ -1685,10 +1784,9 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 mark_read tool" do
+  describe "get_tool/1 mark_read tool" do
     test "includes mark_read tool definition" do
-      tools = Tools.list_tools()
-      tool = Enum.find(tools, &(&1["name"] == "mark_read"))
+      tool = Tools.get_tool("mark_read")
 
       assert tool
       assert String.contains?(tool["description"], "Mark messages as read")
@@ -1738,10 +1836,9 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 react_to_message tool" do
+  describe "get_tool/1 react_to_message tool" do
     test "includes react_to_message tool definition" do
-      tools = Tools.list_tools()
-      tool = Enum.find(tools, &(&1["name"] == "react_to_message"))
+      tool = Tools.get_tool("react_to_message")
 
       assert tool
       assert String.contains?(tool["description"], "emoji reaction")
@@ -1825,10 +1922,9 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 delete_message tool" do
+  describe "get_tool/1 delete_message tool" do
     test "includes delete_message tool definition" do
-      tools = Tools.list_tools()
-      tool = Enum.find(tools, &(&1["name"] == "delete_message"))
+      tool = Tools.get_tool("delete_message")
 
       assert tool
       assert String.contains?(tool["description"], "Delete a message")
@@ -1882,10 +1978,9 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 reply_to_message tool" do
+  describe "get_tool/1 reply_to_message tool" do
     test "includes reply_to_message tool definition" do
-      tools = Tools.list_tools()
-      tool = Enum.find(tools, &(&1["name"] == "reply_to_message"))
+      tool = Tools.get_tool("reply_to_message")
 
       assert tool
       assert String.contains?(tool["description"], "Reply to a specific message")
@@ -1994,10 +2089,9 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 send_location tool" do
+  describe "get_tool/1 send_location tool" do
     test "includes send_location tool definition" do
-      tools = Tools.list_tools()
-      tool = Enum.find(tools, &(&1["name"] == "send_location"))
+      tool = Tools.get_tool("send_location")
 
       assert tool
       assert String.contains?(tool["description"], "location pin")
@@ -2115,10 +2209,9 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 edit_message tool" do
+  describe "get_tool/1 edit_message tool" do
     test "includes edit_message tool definition" do
-      tools = Tools.list_tools()
-      tool = Enum.find(tools, &(&1["name"] == "edit_message"))
+      tool = Tools.get_tool("edit_message")
 
       assert tool
       assert String.contains?(tool["description"], "Edit a sent message")
@@ -2242,10 +2335,9 @@ defmodule WhatsappMcp.ToolsTest do
   # Task 39: Presence & Disappearing Messages
   # ============================================================================
 
-  describe "list_tools/0 set_presence tool" do
+  describe "get_tool/1 set_presence tool" do
     test "includes set_presence tool definition" do
-      tools = Tools.list_tools()
-      tool = Enum.find(tools, &(&1["name"] == "set_presence"))
+      tool = Tools.get_tool("set_presence")
 
       assert tool
       assert String.contains?(tool["description"], "online presence")
@@ -2300,10 +2392,9 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 subscribe_presence tool" do
+  describe "get_tool/1 subscribe_presence tool" do
     test "includes subscribe_presence tool definition" do
-      tools = Tools.list_tools()
-      tool = Enum.find(tools, &(&1["name"] == "subscribe_presence"))
+      tool = Tools.get_tool("subscribe_presence")
 
       assert tool
       assert String.contains?(tool["description"], "presence updates")
@@ -2351,10 +2442,9 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 set_disappearing_timer tool" do
+  describe "get_tool/1 set_disappearing_timer tool" do
     test "includes set_disappearing_timer tool definition" do
-      tools = Tools.list_tools()
-      tool = Enum.find(tools, &(&1["name"] == "set_disappearing_timer"))
+      tool = Tools.get_tool("set_disappearing_timer")
 
       assert tool
       assert String.contains?(tool["description"], "disappearing messages timer")
@@ -2914,15 +3004,14 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 create_poll" do
+  describe "get_tool/1 create_poll" do
     test "includes create_poll tool with correct schema" do
-      tools = Tools.list_tools()
-      create_poll_tool = Enum.find(tools, &(&1["name"] == "create_poll"))
+      tool = Tools.get_tool("create_poll")
 
-      assert create_poll_tool
-      assert String.contains?(create_poll_tool["description"], "poll")
+      assert tool
+      assert String.contains?(tool["description"], "poll")
 
-      schema = create_poll_tool["inputSchema"]
+      schema = tool["inputSchema"]
       assert schema["type"] == "object"
       assert schema["required"] == ["recipient", "question", "options"]
       assert Map.has_key?(schema["properties"], "recipient")
@@ -3046,15 +3135,14 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 list_contacts" do
+  describe "get_tool/1 list_contacts" do
     test "includes list_contacts tool with correct schema" do
-      tools = Tools.list_tools()
-      list_contacts_tool = Enum.find(tools, &(&1["name"] == "list_contacts"))
+      tool = Tools.get_tool("list_contacts")
 
-      assert list_contacts_tool
-      assert String.contains?(list_contacts_tool["description"], "synced WhatsApp contacts")
+      assert tool
+      assert String.contains?(tool["description"], "synced WhatsApp contacts")
 
-      schema = list_contacts_tool["inputSchema"]
+      schema = tool["inputSchema"]
       assert schema["type"] == "object"
       assert Map.has_key?(schema["properties"], "limit")
       assert Map.has_key?(schema["properties"], "offset")
@@ -3135,15 +3223,14 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 merge_chats" do
+  describe "get_tool/1 merge_chats" do
     test "includes merge_chats tool with correct schema" do
-      tools = Tools.list_tools()
-      merge_chats_tool = Enum.find(tools, &(&1["name"] == "merge_chats"))
+      tool = Tools.get_tool("merge_chats")
 
-      assert merge_chats_tool
-      assert String.contains?(merge_chats_tool["description"], "Merge messages")
+      assert tool
+      assert String.contains?(tool["description"], "Merge messages")
 
-      schema = merge_chats_tool["inputSchema"]
+      schema = tool["inputSchema"]
       assert schema["type"] == "object"
       assert Map.has_key?(schema["properties"], "source_jid")
       assert Map.has_key?(schema["properties"], "target_jid")
@@ -3266,10 +3353,9 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 get_group_invite_link" do
+  describe "get_tool/1 get_group_invite_link" do
     test "includes get_group_invite_link tool with correct schema" do
-      tools = Tools.list_tools()
-      tool = Enum.find(tools, &(&1["name"] == "get_group_invite_link"))
+      tool = Tools.get_tool("get_group_invite_link")
 
       assert tool
       assert String.contains?(tool["description"], "invite link")
@@ -3284,10 +3370,9 @@ defmodule WhatsappMcp.ToolsTest do
     end
   end
 
-  describe "list_tools/0 join_group" do
+  describe "get_tool/1 join_group" do
     test "includes join_group tool with correct schema" do
-      tools = Tools.list_tools()
-      tool = Enum.find(tools, &(&1["name"] == "join_group"))
+      tool = Tools.get_tool("join_group")
 
       assert tool
       assert String.contains?(tool["description"], "invite link")

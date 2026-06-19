@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **Lazy Tool Discovery Pattern**: Reduced MCP token overhead by ~90% by exposing only 3 wrapper tools (`tool_list`, `tool_get`, `tool_call`) instead of 50+ full tool schemas. Tools are now accessed on-demand via `tool_call("tool_name", {args})`.
 - Store LID→phone number mappings from WhatsApp history sync for better contact resolution
 - Request full history sync with group history support (~13k messages synced vs ~580 before)
 

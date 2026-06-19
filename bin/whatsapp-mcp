@@ -1,3 +1,11 @@
 #!/bin/bash
-cd /Users/efries/_DATA/code/whatsapp_mcp
-exec mix run --no-halt -e "WhatsappMcp.Server.start_link([])"
+cd "$(dirname "$0")/.."
+export PATH="$HOME/.asdf/shims:$HOME/.asdf/bin:$PATH"
+
+# Pre-compile with stdin from /dev/null so mix compile doesn't eat the
+# inherited stdin pipe that mix run will need for MCP JSON-RPC reads.
+mix compile </dev/null >/dev/null 2>&1
+
+# Run server. stderr suppressed because Erlang/Bandit Logger output
+# (info/notice) would leak onto the MCP protocol channel if not.
+exec mix run --no-halt -e "WhatsappMcp.Server.start_link([])" 2>/dev/null

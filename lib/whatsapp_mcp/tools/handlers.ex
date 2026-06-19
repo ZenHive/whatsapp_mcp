@@ -22,6 +22,7 @@ defmodule WhatsappMcp.Tools.Handlers do
 
   alias WhatsappMcp.Bridge
   alias WhatsappMcp.Database
+  alias WhatsappMcp.Tools.Definitions
   alias WhatsappMcp.Tools.Formatters
 
   @default_chat_limit 50
@@ -38,6 +39,13 @@ defmodule WhatsappMcp.Tools.Handlers do
   Returns `{:ok, text}` with formatted result or `{:error, reason}`.
   """
   @spec call_tool(String.t(), map()) :: {:ok, String.t()} | {:error, term()}
+
+  # Wrapper tools for lazy discovery
+  def call_tool("tool_list", args), do: call_tool("tool_list", args, [])
+  def call_tool("tool_get", args), do: call_tool("tool_get", args, [])
+  def call_tool("tool_call", args), do: call_tool("tool_call", args, [])
+
+  # Actual tools
   def call_tool("list_chats", args), do: call_tool("list_chats", args, [])
   def call_tool("get_messages", args), do: call_tool("get_messages", args, [])
   def call_tool("search_messages", args), do: call_tool("search_messages", args, [])
@@ -89,6 +97,40 @@ defmodule WhatsappMcp.Tools.Handlers do
   - `:db_path` - Override database path for testing
   """
   @spec call_tool(String.t(), map(), keyword()) :: {:ok, String.t()} | {:error, term()}
+
+  # Wrapper tools for lazy discovery
+
+  def call_tool("tool_list", args, _opts) do
+    category = args["category"]
+    summaries = Definitions.list_tool_summaries(category)
+    {:ok, Formatters.format_tool_list(summaries, category)}
+  end
+
+  def call_tool("tool_get", args, _opts) do
+    case args["name"] do
+      nil ->
+        {:error, "name parameter is required"}
+
+      "" ->
+        {:error, "name parameter is required"}
+
+      name ->
+        case Definitions.get_tool(name) do
+          nil -> {:error, "Unknown tool: #{name}. Use tool_list to see available tools."}
+          tool -> {:ok, Formatters.format_tool_schema(tool)}
+        end
+    end
+  end
+
+  def call_tool("tool_call", args, opts) do
+    case args["name"] do
+      blank when blank in [nil, ""] -> {:error, "name parameter is required"}
+      name -> dispatch_named_tool(name, args["arguments"], opts)
+    end
+  end
+
+  # Actual tools
+
   def call_tool("list_chats", args, opts) do
     limit = args["limit"] || @default_chat_limit
     offset = args["offset"] || 0
@@ -328,6 +370,8 @@ defmodule WhatsappMcp.Tools.Handlers do
     http_status = Bridge.health_check(opts)
     Formatters.format_bridge_status(http_status)
   end
+
+  def call_tool("get_help", _args, _opts), do: {:ok, Formatters.help_text()}
 
   def call_tool("send_typing", args, opts) do
     with {:ok, recipient} <- validate_required(args["recipient"], "recipient") do
@@ -694,7 +738,30 @@ defmodule WhatsappMcp.Tools.Handlers do
     end
   end
 
-  # Private validation helpers
+  # Catch-all: a registry tool reaching here has no matching /3 clause.
+  # Return an error tuple rather than crashing the server with a
+  # FunctionClauseError (the GenServer dispatch path has no rescue).
+  def call_tool(unknown_tool, _args, _opts) do
+    {:error, "Unknown tool: #{unknown_tool}"}
+  end
+
+  # Private helpers
+
+  # Dispatches a wrapper `tool_call` to the named tool's /3 handler.
+  # Guards against non-map arguments (e.g. a JSON string/list from a
+  # misbehaving client): `|| %{}` only covers nil/false, so a truthy non-map
+  # would reach a handler's `arguments["key"]` and raise an Access protocol
+  # error, crashing the GenServer with no reply.
+  @spec dispatch_named_tool(String.t(), term(), keyword()) ::
+          {:ok, String.t()} | {:error, term()}
+  defp dispatch_named_tool(name, raw_arguments, opts) do
+    if Definitions.tool_exists?(name) do
+      arguments = if is_map(raw_arguments), do: raw_arguments, else: %{}
+      call_tool(name, arguments, opts)
+    else
+      {:error, "Unknown tool: #{name}. Use tool_list to see available tools."}
+    end
+  end
 
   defp validate_different_jids(source, target) when source == target do
     {:error, "source_jid and target_jid cannot be the same"}

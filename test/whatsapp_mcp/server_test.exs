@@ -168,16 +168,24 @@ defmodule WhatsappMcp.ServerTest do
       end
     end
 
-    test "includes expected tools" do
+    test "includes wrapper tools (lazy discovery pattern)" do
       tools = Tools.list_tools()
       tool_names = Enum.map(tools, & &1["name"])
 
-      # Verify core tools are present
-      assert "list_chats" in tool_names
-      assert "get_messages" in tool_names
-      assert "search_messages" in tool_names
-      assert "send_message" in tool_names
-      assert "get_help" in tool_names
+      # Verify wrapper tools are present (lazy discovery pattern)
+      assert "tool_list" in tool_names
+      assert "tool_get" in tool_names
+      assert "tool_call" in tool_names
+      assert length(tool_names) == 3
+    end
+
+    test "actual tools accessible via get_tool/1" do
+      # Verify core tools are accessible via registry
+      assert Tools.get_tool("list_chats")
+      assert Tools.get_tool("get_messages")
+      assert Tools.get_tool("search_messages")
+      assert Tools.get_tool("send_message")
+      assert Tools.get_tool("get_help")
     end
   end
 
@@ -306,7 +314,7 @@ defmodule WhatsappMcp.ServerTest do
       assert {:ok, _json} = Jason.encode(expected_response)
     end
 
-    test "tools/list returns all tool definitions" do
+    test "tools/list returns wrapper tool definitions (lazy discovery)" do
       tools = Tools.list_tools()
 
       expected_response = %{
@@ -315,13 +323,12 @@ defmodule WhatsappMcp.ServerTest do
         "result" => %{"tools" => tools}
       }
 
-      # Verify all expected tools are present
+      # Verify wrapper tools are present (lazy discovery pattern)
       tool_names = Enum.map(expected_response["result"]["tools"], & &1["name"])
-      assert "list_chats" in tool_names
-      assert "get_messages" in tool_names
-      assert "send_message" in tool_names
-      assert "get_help" in tool_names
-      assert "get_bridge_status" in tool_names
+      assert "tool_list" in tool_names
+      assert "tool_get" in tool_names
+      assert "tool_call" in tool_names
+      assert length(tool_names) == 3
     end
 
     test "tools/call with valid tool returns success content" do
@@ -437,7 +444,7 @@ defmodule WhatsappMcp.ServerTest do
       assert is_map(response["result"]["capabilities"]["tools"])
     end
 
-    test "handle_tools_list returns all tools" do
+    test "handle_tools_list returns wrapper tools (lazy discovery)" do
       response = ServerTestHelper.handle_tools_list(2)
 
       assert response["jsonrpc"] == "2.0"
@@ -445,9 +452,10 @@ defmodule WhatsappMcp.ServerTest do
       assert is_list(response["result"]["tools"])
 
       tool_names = Enum.map(response["result"]["tools"], & &1["name"])
-      assert "list_chats" in tool_names
-      assert "get_help" in tool_names
-      assert "send_message" in tool_names
+      assert "tool_list" in tool_names
+      assert "tool_get" in tool_names
+      assert "tool_call" in tool_names
+      assert length(tool_names) == 3
     end
 
     test "handle_tools_call with get_help returns success" do

@@ -27,3 +27,9 @@ whatsapp_mcp-*.tar
 /bridge/store/
 bridge/whatsapp-bridge
 bridge/whatsapp-client
+
+# Local MCP configuration (contains absolute paths)
+.mcp.json
+
+# Hex docs cache (Tidewave)
+.hex-docs/

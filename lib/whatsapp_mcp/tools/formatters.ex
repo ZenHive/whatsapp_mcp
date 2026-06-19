@@ -632,8 +632,7 @@ defmodule WhatsappMcp.Tools.Formatters do
   # Extracts just the date portion from a timestamp string.
   # Handles both "YYYY-MM-DD HH:MM:SS" and "YYYY-MM-DDTHH:MM:SS" formats.
   # Returns empty string for nil/empty/malformed input.
-  @spec format_date(String.t() | nil) :: String.t()
-  defp format_date(nil), do: ""
+  @spec format_date(String.t()) :: String.t()
   defp format_date(""), do: ""
 
   defp format_date(timestamp) when is_binary(timestamp) do
@@ -741,8 +740,6 @@ defmodule WhatsappMcp.Tools.Formatters do
   defp format_source_jid(source_jid, %{jid: chat_jid}) when source_jid == chat_jid, do: ""
 
   defp format_source_jid(source_jid, %{jid: _chat_jid}), do: " [from: #{source_jid}]"
-
-  defp format_source_jid(_source_jid, _chat_info), do: ""
 
   defp format_message_content(nil, nil), do: "(empty message)"
   defp format_message_content(nil, ""), do: "(empty message)"
@@ -1340,5 +1337,129 @@ defmodule WhatsappMcp.Tools.Formatters do
         else: ""
 
     "[#{timestamp}]#{media}#{views}\n#{text}"
+  end
+
+  # Wrapper tool formatters for lazy discovery
+
+  @doc """
+  Formats the tool list for display.
+
+  Groups tools by category and shows name + brief description.
+  """
+  @spec format_tool_list([map()], String.t() | nil) :: String.t()
+  def format_tool_list(summaries, category \\ nil)
+
+  def format_tool_list([], _category) do
+    "No tools found."
+  end
+
+  def format_tool_list(summaries, nil) do
+    # Group by category for better organization
+    by_category =
+      summaries
+      |> Enum.group_by(& &1.category)
+      |> Enum.sort_by(fn {cat, _} -> category_order(cat) end)
+
+    header = "Available WhatsApp Tools (#{length(summaries)} total)\n\n"
+
+    body =
+      Enum.map_join(by_category, "\n", fn {category, tools} ->
+        cat_header = "## #{format_category_name(category)}\n"
+        tool_lines = Enum.map_join(tools, "\n", &format_tool_summary_line/1)
+        cat_header <> tool_lines
+      end)
+
+    hint = "\n\nUse tool_get(name: \"<tool_name>\") to see full schema before calling."
+
+    header <> body <> hint
+  end
+
+  def format_tool_list(summaries, category) do
+    header = "#{format_category_name(category)} Tools (#{length(summaries)})\n\n"
+
+    body = Enum.map_join(summaries, "\n", &format_tool_summary_line/1)
+
+    hint = "\n\nUse tool_get(name: \"<tool_name>\") to see full schema before calling."
+
+    header <> body <> hint
+  end
+
+  @doc false
+  # Formats a single tool summary line
+  defp format_tool_summary_line(%{name: name, brief: brief}) do
+    "• #{name} - #{brief}"
+  end
+
+  @doc false
+  # Returns sort order for categories
+  defp category_order("reading"), do: 1
+  defp category_order("writing"), do: 2
+  defp category_order("groups"), do: 3
+  defp category_order("newsletters"), do: 4
+  defp category_order("privacy"), do: 5
+  defp category_order("utility"), do: 6
+  defp category_order(_), do: 99
+
+  @doc false
+  # Formats category name for display
+  defp format_category_name("reading"), do: "Reading"
+  defp format_category_name("writing"), do: "Writing"
+  defp format_category_name("groups"), do: "Groups"
+  defp format_category_name("newsletters"), do: "Newsletters"
+  defp format_category_name("privacy"), do: "Privacy"
+  defp format_category_name("utility"), do: "Utility"
+  defp format_category_name(cat), do: String.capitalize(cat)
+
+  @doc """
+  Formats a full tool schema for display.
+
+  Shows the tool name, description, and all parameters with their types and descriptions.
+  """
+  @spec format_tool_schema(map()) :: String.t()
+  def format_tool_schema(tool) do
+    name = tool["name"]
+    description = tool["description"]
+    schema = tool["inputSchema"]
+    properties = schema["properties"] || %{}
+    required = schema["required"] || []
+
+    header = "## #{name}\n\n#{description}\n"
+
+    params_section =
+      if map_size(properties) == 0 do
+        "\n### Parameters\nNone required.\n"
+      else
+        params = format_tool_parameters(properties, required)
+        "\n### Parameters\n#{params}"
+      end
+
+    usage_hint = "\n### Usage\ntool_call(name: \"#{name}\", arguments: {...})"
+
+    header <> params_section <> usage_hint
+  end
+
+  @doc false
+  # Formats tool parameters for display
+  defp format_tool_parameters(properties, required) do
+    properties
+    |> Enum.sort_by(fn {name, _} ->
+      # Required params first, then alphabetical
+      {name not in required, name}
+    end)
+    |> Enum.map_join("\n", fn {name, prop} ->
+      format_parameter(name, prop, name in required)
+    end)
+  end
+
+  @doc false
+  # Formats a single parameter
+  defp format_parameter(name, prop, is_required) do
+    type = prop["type"] || "any"
+    description = prop["description"] || ""
+    required_marker = if is_required, do: " (required)", else: ""
+    default = if prop["default"], do: " [default: #{inspect(prop["default"])}]", else: ""
+    enum_values = if prop["enum"], do: " [values: #{Enum.join(prop["enum"], ", ")}]", else: ""
+
+    "• #{name}: #{type}#{required_marker}#{default}#{enum_values}\n  #{description}"
   end
 end

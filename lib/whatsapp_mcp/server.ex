@@ -29,12 +29,18 @@ defmodule WhatsappMcp.Server do
 
   @impl true
   def init(_opts) do
+    # Open raw stdout fd to bypass Erlang IO buffering.
+    # When stdout is piped (e.g., Claude Desktop MCP), the Erlang IO system
+    # may block-buffer output, causing the MCP client to timeout waiting
+    # for responses. Raw file writes flush immediately.
+    {:ok, stdout} = :file.open(~c"/dev/stdout", [:write, :binary, :raw])
+
     # Start reading from stdin in a linked task.
     # The task is linked so it will be terminated automatically when this
     # GenServer terminates - no need to store the PID in state.
     {:ok, _reader_pid} = Task.start_link(fn -> read_loop() end)
 
-    {:ok, %{initialized: false}}
+    {:ok, %{initialized: false, stdout: stdout}}
   end
 
   @impl true
@@ -50,7 +56,7 @@ defmodule WhatsappMcp.Server do
 
     case response do
       {:reply, reply, new_state} ->
-        send_response(reply)
+        send_response(reply, state.stdout)
         {:noreply, new_state}
 
       {:noreply, new_state} ->
@@ -149,9 +155,12 @@ defmodule WhatsappMcp.Server do
     }
   end
 
-  defp send_response(response) do
+  defp send_response(response, stdout) do
     json = Jason.encode!(response)
-    IO.puts(json)
+    # Write directly to raw fd to bypass Erlang IO buffering.
+    # When stdout is piped (e.g., Claude Desktop MCP), the Erlang IO system
+    # may block-buffer, causing timeouts. Raw :file.write flushes immediately.
+    :file.write(stdout, [json, ?\n])
   end
 
   # Stdin reader

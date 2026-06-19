@@ -1,0 +1,6 @@
+{
+  "enabledPlugins": {
+    "elixir@zenhive": true,
+    "elixir-workflows@zenhive": true
+  }
+}

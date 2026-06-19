@@ -2,14 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-@include ~/.claude/includes/across-instances.md
-@include ~/.claude/includes/critical-rules.md
-@include ~/.claude/includes/task-prioritization.md
-@include ~/.claude/includes/web-command.md
-@include ~/.claude/includes/code-style.md
-@include ~/.claude/includes/development-philosophy.md
-@include ~/.claude/includes/development-commands.md
-@include ~/.claude/includes/elixir-patterns.md
+@~/.claude/includes/across-instances.md
+@~/.claude/includes/critical-rules.md
+@~/.claude/includes/worktree-workflow.md
+@~/.claude/includes/task-prioritization.md
+@~/.claude/includes/task-writing.md
+@~/.claude/includes/rmap.md
+@~/.claude/includes/workflow-philosophy.md
+@~/.claude/includes/ex-unit-json.md
+@~/.claude/includes/dialyzer-json.md
+@~/.claude/includes/code-style.md
+@~/.claude/includes/development-commands.md
+@~/.claude/includes/development-philosophy.md
 
 ## Project Overview
 
@@ -100,6 +104,10 @@ Claude Code ←→ Elixir MCP Server ←→ Go Bridge ←→ WhatsApp Web API
 - `url`, `media_key`, `file_sha256`, `file_enc_sha256`, `file_length` - Media download info
 
 ## MCP Tools
+
+### Lazy Tool Discovery
+
+The server exposes only **3 wrapper tools** to MCP clients to minimize token overhead (~90% reduction vs. surfacing every schema): `tool_list` (browse tools, optionally by category), `tool_get` (fetch a tool's full schema), and `tool_call` (execute a tool by name). The tools listed below are **not exposed directly** — invoke any of them via `tool_call(name: "<tool>", arguments: {...})`. The registry and dispatch live in `WhatsappMcp.Tools.Definitions` / `Handlers`; every registry entry must have a matching `call_tool/3` clause (a `/3` catch-all returns an error tuple if one is missing).
 
 ### Reading Tools
 | Tool | Description |
