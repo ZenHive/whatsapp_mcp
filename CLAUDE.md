@@ -215,12 +215,6 @@ mix test --include sends_message      # + sends real WhatsApp messages (careful!
 
 ## Roadmap
 
-All 13 tasks from `roadmap.md` are **complete**:
-1. ✅ Foundation (HTTP client, DB schema switch)
-2. ✅ Send features (send_message, send_file, send_audio)
-3. ✅ Media download
-4. ✅ Enhanced queries (contacts, context, pagination)
-5. ✅ Polish (tests, docs)
-
+Managed via `rmap` — see `ROADMAP.md` (rendered) / `roadmap/tasks.toml` (canonical source). 49 of 50 tasks across Phases 1-12 are `done`; Task 46 (Tool Definition DSL macro refactor) is `blocked`/deferred until tool count exceeds 75+, a REST/GraphQL interface is needed, or the tools are extracted as a reusable library.
 
 Check todays date, to avoid searching in the wrong year.

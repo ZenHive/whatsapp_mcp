@@ -1,0 +1,1333 @@
+schema_version = 2
+project = "whatsapp_mcp"
+default_branch = "development"
+
+[phases.1]
+name = "Foundation"
+order = 1
+status = "done"
+
+[phases.2]
+name = "Send Features"
+order = 2
+status = "done"
+
+[phases.3]
+name = "Media Download"
+order = 3
+status = "done"
+
+[phases.4]
+name = "Enhanced Query Features"
+order = 4
+status = "done"
+
+[phases.5]
+name = "Polish & Testing"
+order = 5
+status = "done"
+
+[phases.6]
+name = "Bridge Health & AI-Friendliness"
+order = 6
+status = "done"
+
+[phases.7]
+name = "Contact Resolution & UX"
+order = 7
+status = "done"
+
+[phases.8]
+name = "Messaging Features"
+order = 8
+status = "done"
+
+[phases.9]
+name = "Advanced Features (Lower Priority)"
+order = 9
+status = "done"
+
+[phases.10]
+name = "Quick Wins (from AI Testing Feedback)"
+order = 10
+status = "done"
+
+[phases.11]
+name = "Whatsmeow Feature Expansion"
+order = 11
+status = "done"
+
+[phases.12]
+name = "Architecture & Developer Experience"
+order = 12
+status = "in_progress"
+
+[bundles.foundation]
+phase = 1
+order = 1
+description = "Foundation"
+
+[bundles.send-features]
+phase = 2
+order = 1
+description = "Send Features"
+
+[bundles.media-download]
+phase = 3
+order = 1
+description = "Media Download"
+
+[bundles.queries]
+phase = 4
+order = 1
+description = "Enhanced Query Features"
+
+[bundles.polish]
+phase = 5
+order = 1
+description = "Polish & Testing"
+
+[bundles.bridge-health]
+phase = 6
+order = 1
+description = "Bridge Health & AI-Friendliness"
+
+[bundles.contact-resolution]
+phase = 7
+order = 1
+description = "Contact Resolution & UX"
+
+[bundles.messaging-features]
+phase = 8
+order = 1
+description = "Messaging Features"
+
+[bundles.advanced-features]
+phase = 9
+order = 1
+description = "Advanced Features (Lower Priority)"
+
+[bundles.quick-wins]
+phase = 10
+order = 1
+description = "Quick Wins (from AI Testing Feedback)"
+
+[bundles.whatsmeow-expansion]
+phase = 11
+order = 1
+description = "Whatsmeow Feature Expansion"
+
+[bundles.architecture]
+phase = 12
+order = 1
+description = "Architecture & Developer Experience"
+
+# ---------------------------------------------------------------------------
+# Phase 1: Foundation
+# ---------------------------------------------------------------------------
+
+[[task]]
+id = 1
+phase = 1
+bundle = "foundation"
+title = "Add HTTP Client and Switch Database Schema"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Add the Req HTTP client library and update the database module to read from the Go bridge's messages.db instead of the native macOS database. New schema: chats table (jid, name, last_message_time), messages table (id, chat_jid, sender, content, timestamp, is_from_me, media_type, filename). Migrated from unscored roadmap.md entry, default score, not re-evaluated.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "mix deps.get succeeds with Req installed",
+  "list_chats returns data from Go bridge's messages.db",
+  "get_messages works with new schema",
+  "search_messages works with new schema",
+  "All existing tests pass (or are updated)",
+]
+files_to_modify = ["mix.exs", "lib/whatsapp_mcp/config.ex", "lib/whatsapp_mcp/database.ex"]
+
+[[task]]
+id = 2
+phase = 1
+bundle = "foundation"
+title = "Create Bridge Client Module"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Create a new module to communicate with the Go bridge HTTP API: send_message/2, send_file/2, download_media/2, health_check/0 against POST /api/send and POST /api/download. Migrated from unscored roadmap.md entry, default score, not re-evaluated.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Bridge.health_check() returns {:ok, :connected} or {:error, :bridge_not_running}",
+  "Bridge.send_message/2 successfully sends a test message",
+  "Bridge.download_media/2 returns file path on success",
+  "Proper error handling for network failures",
+]
+files_to_modify = ["lib/whatsapp_mcp/bridge.ex"]
+
+# ---------------------------------------------------------------------------
+# Phase 2: Send Features
+# ---------------------------------------------------------------------------
+
+[[task]]
+id = 3
+phase = 2
+bundle = "send-features"
+title = "Add send_message Tool"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Expose send_message as an MCP tool that sends text messages via the Go bridge, with recipient (phone or JID) and message text parameters. Migrated from unscored roadmap.md entry, default score, not re-evaluated.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Tool appears in tools/list response",
+  "Sending a message to a valid recipient succeeds",
+  "Returns success/failure status with descriptive message",
+  "Handles invalid recipient gracefully",
+]
+files_to_modify = ["lib/whatsapp_mcp/tools.ex"]
+
+[[task]]
+id = 4
+phase = 2
+bundle = "send-features"
+title = "Add send_file Tool"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Expose send_file as an MCP tool for sending images, videos, and documents, with recipient, file_path, and optional caption parameters. Migrated from unscored roadmap.md entry, default score, not re-evaluated.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Tool appears in tools/list response",
+  "Can send an image file successfully",
+  "Can send a document/PDF successfully",
+  "Validates file exists before sending",
+  "Returns descriptive error if file not found",
+]
+files_to_modify = ["lib/whatsapp_mcp/tools.ex"]
+
+[[task]]
+id = 5
+phase = 2
+bundle = "send-features"
+title = "Add send_audio_message Tool"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Expose send_audio_message for sending voice messages. The Go bridge handles Opus conversion if ffmpeg is installed; Elixir just passes the file path through. Migrated from unscored roadmap.md entry, default score, not re-evaluated.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Tool appears in tools/list response",
+  "Can send .ogg audio file as voice message",
+  "Returns helpful error if ffmpeg not installed and conversion needed",
+  "Audio plays correctly in WhatsApp recipient's app",
+]
+files_to_modify = ["lib/whatsapp_mcp/tools.ex", "lib/whatsapp_mcp/bridge.ex"]
+
+# ---------------------------------------------------------------------------
+# Phase 3: Media Download
+# ---------------------------------------------------------------------------
+
+[[task]]
+id = 6
+phase = 3
+bundle = "media-download"
+title = "Add download_media Tool"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Expose download_media to download images, videos, and audio from messages, given message_id and chat_jid. Migrated from unscored roadmap.md entry, default score, not re-evaluated.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Tool appears in tools/list response",
+  "Can download an image from a message",
+  "Returns absolute file path on success",
+  "Returns descriptive error if message has no media",
+  "Returns descriptive error if media info incomplete",
+]
+files_to_modify = ["lib/whatsapp_mcp/tools.ex"]
+
+# ---------------------------------------------------------------------------
+# Phase 4: Enhanced Query Features
+# ---------------------------------------------------------------------------
+
+[[task]]
+id = 7
+phase = 4
+bundle = "queries"
+title = "Add search_contacts Tool"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Add ability to search contacts by name or phone number, querying the chats table (excluding groups) and matching on name/jid. Migrated from unscored roadmap.md entry, default score, not re-evaluated.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Tool appears in tools/list response",
+  "Searching by partial name returns matching contacts",
+  "Searching by phone number returns matching contact",
+  "Returns JID, name, and phone number for each result",
+]
+files_to_modify = ["lib/whatsapp_mcp/database.ex", "lib/whatsapp_mcp/tools.ex"]
+
+[[task]]
+id = 8
+phase = 4
+bundle = "queries"
+title = "Add get_chat and get_direct_chat_by_contact Tools"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Add tools to get specific chat metadata: get_chat (by JID) and get_direct_chat_by_contact (by phone number). Migrated from unscored roadmap.md entry, default score, not re-evaluated.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Both tools appear in tools/list response",
+  "get_chat returns chat metadata given a JID",
+  "get_direct_chat_by_contact finds chat by phone number",
+  "Returns last message, timestamp, and chat name",
+  "Handles not-found cases gracefully",
+]
+files_to_modify = ["lib/whatsapp_mcp/database.ex", "lib/whatsapp_mcp/tools.ex"]
+
+[[task]]
+id = 9
+phase = 4
+bundle = "queries"
+title = "Add get_message_context Tool"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Add ability to get messages surrounding a specific message (before/after context, chronological order, configurable limits). Migrated from unscored roadmap.md entry, default score, not re-evaluated.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Tool appears in tools/list response",
+  "Returns the target message plus surrounding context",
+  "Respects before/after limits",
+  "Messages are in chronological order",
+]
+files_to_modify = ["lib/whatsapp_mcp/database.ex", "lib/whatsapp_mcp/tools.ex"]
+
+[[task]]
+id = 10
+phase = 4
+bundle = "queries"
+title = "Add Pagination to list_chats and get_messages"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Add pagination support to list_chats (page, default 0; sort_by, default last_active) and get_messages (page, default 0; after timestamp filter) for handling large result sets. Migrated from unscored roadmap.md entry, default score, not re-evaluated.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "list_chats with page: 0 returns first page, page: 1 returns second page",
+  "get_messages supports pagination",
+  "get_messages supports after timestamp for date filtering",
+  "Empty page returns empty list (not error)",
+]
+files_to_modify = ["lib/whatsapp_mcp/database.ex", "lib/whatsapp_mcp/tools.ex"]
+
+[[task]]
+id = 11
+phase = 4
+bundle = "queries"
+title = "Add get_last_interaction and get_contact_chats Tools"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Add tools to find recent interactions and all chats for a contact: get_last_interaction (most recent message with a contact) and get_contact_chats (all chats involving a contact, including groups). Migrated from unscored roadmap.md entry, default score, not re-evaluated.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Both tools appear in tools/list response",
+  "get_last_interaction returns single most recent message",
+  "get_contact_chats returns all chats where contact is a participant",
+  "Handles contacts with no messages gracefully",
+]
+files_to_modify = ["lib/whatsapp_mcp/database.ex", "lib/whatsapp_mcp/tools.ex"]
+
+# ---------------------------------------------------------------------------
+# Phase 5: Polish & Testing
+# ---------------------------------------------------------------------------
+
+[[task]]
+id = 12
+phase = 5
+bundle = "polish"
+title = "Add Integration Tests"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Add comprehensive tests for all new functionality: bridge client tests with Req.Test mocking, database query tests, tool integration tests, config tests, and shared fixtures. Achieved 86.64% total coverage (Config 100%, WhatsappMcp 100%, Tools 92.73%, Database 91.78%, Bridge 90.91%); Server and CLI are 0% (stdio/blocking, not unit tested). Migrated from unscored roadmap.md entry, default score, not re-evaluated.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "All 220 tests pass with mix test",
+  "Tests don't require live Go bridge (use mocks)",
+  "Coverage for happy paths and error cases",
+  "Tests for all 13 tools",
+]
+files_to_modify = [
+  "test/whatsapp_mcp/bridge_test.exs",
+  "test/whatsapp_mcp/database_test.exs",
+  "test/whatsapp_mcp/tools_test.exs",
+  "test/whatsapp_mcp/config_test.exs",
+  "test/whatsapp_mcp_test.exs",
+  "test/support/database_fixtures.ex",
+]
+
+[[task]]
+id = 13
+phase = 5
+bundle = "polish"
+title = "Update Documentation"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Update README and module docs for new features: complete tool list organized by Reading/Writing sections, CLAUDE.md tool list, and a get_help tool with usage guide (JID formats, contact discovery workflows, common patterns). mix doctor passes 100% across all metrics. Migrated from unscored roadmap.md entry, default score, not re-evaluated.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "README has complete setup instructions",
+  "All public functions have @doc",
+  "All modules have @moduledoc",
+  "Examples for each tool",
+]
+files_to_modify = ["README.md", "CLAUDE.md", "lib/whatsapp_mcp/tools.ex"]
+
+# ---------------------------------------------------------------------------
+# Phase 6: Bridge Health & AI-Friendliness
+# ---------------------------------------------------------------------------
+
+[[task]]
+id = 14
+phase = 6
+bundle = "bridge-health"
+title = "Health Check Endpoint"
+status = "done"
+scores = { d = 2, b = 7, u = 7 }
+body = """
+Add GET /api/health endpoint to verify bridge connection status (connected, phone, name), and expose it via the get_bridge_status MCP tool.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Returns connection status, logged-in phone, and account name",
+  "MCP tool get_bridge_status exposes status to AI",
+  "Returns {:error, :bridge_not_running} when bridge is down",
+]
+files_to_modify = [
+  "bridge/main.go",
+  "lib/whatsapp_mcp/bridge.ex",
+  "lib/whatsapp_mcp/tools.ex",
+  "test/whatsapp_mcp/bridge_test.exs",
+  "test/whatsapp_mcp/tools_test.exs",
+]
+
+[[task]]
+id = 15
+phase = 6
+bundle = "bridge-health"
+title = "Add message_id and media to search_messages"
+status = "done"
+scores = { d = 2, b = 9, u = 9 }
+body = """
+Enable AI to use search results for follow-up actions (get_message_context, download_media). Previously search_messages didn't return message IDs or media indicators — the "ID:" label showed chat_id, not message_id, so AI couldn't act on results without extra queries. Add m.id and m.media_type to the search_messages query and update format_search_results/1 with a clear MsgID label and media type indicators (e.g. camera/video icons).
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Search results include message ID for each result",
+  "Search results show media type indicators",
+  "Labels clearly distinguish MsgID from chat JID",
+  "AI can use results directly with get_message_context or download_media",
+]
+files_to_modify = ["lib/whatsapp_mcp/database.ex", "lib/whatsapp_mcp/tools.ex"]
+
+[[task]]
+id = 16
+phase = 6
+bundle = "bridge-health"
+title = "Add pagination totals to list functions"
+status = "done"
+scores = { d = 3, b = 8, u = 8 }
+body = """
+Let AI know if more results exist and plan pagination accordingly — outputs change from "Found 5 chats:" to "Found 5 chats (showing 1-5 of 127 total, offset: 0):". Add count_chats/1, count_contact_chats/1, count_messages/1, count_search_results/1, count_contacts/1, wire counts through handlers into all list formatters. Affects list_chats, get_messages, search_messages, search_contacts, get_contact_chats.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "All list outputs show \"showing X-Y of Z total, offset: N\"",
+  "AI can determine if pagination is needed",
+  "Minimal performance impact (single COUNT query per call)",
+]
+files_to_modify = [
+  "lib/whatsapp_mcp/database/chats.ex",
+  "lib/whatsapp_mcp/database/messages.ex",
+  "lib/whatsapp_mcp/database/contacts.ex",
+  "lib/whatsapp_mcp/database.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+  "lib/whatsapp_mcp/tools/formatters.ex",
+]
+
+[[task]]
+id = 17
+phase = 6
+bundle = "bridge-health"
+title = "Add actionable hints to tool outputs"
+status = "done"
+scores = { d = 2, b = 5, u = 5 }
+body = """
+Guide AI to logical next steps after tool execution by adding footer hints to list formatters (e.g. list_chats hints at get_messages, search_messages hints at get_message_context, search_contacts hints at send_message), referencing actual field values from results when available and omitted on empty results.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Key tools include actionable tips in output",
+  "Tips reference actual field values from results when available",
+  "Tips don't appear on empty results",
+]
+files_to_modify = ["lib/whatsapp_mcp/tools/formatters.ex", "test/whatsapp_mcp/tools_test.exs"]
+
+[[task]]
+id = 18
+phase = 6
+bundle = "bridge-health"
+title = "Standardize field naming and improve descriptions"
+status = "done"
+scores = { d = 2, b = 5, u = 5 }
+body = """
+Consistent field naming helps AI understand parameter values. Change list_chats/1 to return :jid instead of :id, change output labels from "ID:" to "JID:", and improve tool descriptions for list_chats, search_messages, and search_contacts to explain what returned values can be used for.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "All output labels use consistent \"JID:\" for chat identifiers",
+  "Tool descriptions explain what returned values can be used for",
+  "No breaking changes to MCP tool parameter names",
+  "All 252 tests pass",
+]
+files_to_modify = [
+  "lib/whatsapp_mcp/database/chats.ex",
+  "lib/whatsapp_mcp/tools/formatters.ex",
+  "lib/whatsapp_mcp/tools/definitions.ex",
+  "test/whatsapp_mcp/database_test.exs",
+]
+
+[[task]]
+id = 19
+phase = 6
+bundle = "bridge-health"
+title = "Update tests for AI-friendliness changes"
+status = "done"
+scores = { d = 2, b = 3, u = 3 }
+body = """
+Ensure all format changes from Tasks 15-18 are covered by tests: 33 new database tests for the count functions (count_chats, count_contact_chats, count_messages, count_search_results, count_contacts) and 12 new tool tests for pagination info across list_chats, search_messages, search_contacts, get_contact_chats. Test count increased 291 -> 324.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "All format changes have corresponding test updates",
+  "Count functions have unit tests",
+  "Pagination info assertions in tool tests",
+]
+files_to_modify = ["test/whatsapp_mcp/database_test.exs", "test/whatsapp_mcp/tools_test.exs"]
+
+[[task]]
+id = 35
+phase = 6
+bundle = "bridge-health"
+title = "Code Review Fixes"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Address issues found during comprehensive code review: removed unused reader_pid from Server GenServer state and clarified terminate/2; documented why SQL fragment interpolation is safe (hardcoded strings only, params via ? placeholders); improved format_date/1 with regex validation for nil/empty/malformed input; added offset to search_messages for pagination consistency; added Server module tests (protocol compliance, response formatting, JSON-RPC parsing, tool listing, MCP compliance) and CLI module tests.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Unused state removed from Server",
+  "SQL safety documented",
+  "Timestamp edge cases handled",
+  "search_messages has offset parameter",
+  "Server and CLI have tests",
+]
+files_to_modify = [
+  "lib/whatsapp_mcp/server.ex",
+  "lib/whatsapp_mcp/database/helpers.ex",
+  "lib/whatsapp_mcp/tools/formatters.ex",
+  "lib/whatsapp_mcp/tools/definitions.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+  "lib/whatsapp_mcp/database/messages.ex",
+  "test/whatsapp_mcp/server_test.exs",
+  "test/whatsapp_mcp/cli_test.exs",
+]
+
+# ---------------------------------------------------------------------------
+# Phase 7: Contact Resolution & UX
+# ---------------------------------------------------------------------------
+
+[[task]]
+id = 20
+phase = 7
+bundle = "contact-resolution"
+title = "Resolve LID to Phone Number"
+status = "done"
+scores = { d = 6, b = 9, u = 9 }
+body = """
+WhatsApp's newer Linked ID (@lid) format stores contacts as numeric IDs instead of phone numbers, so users couldn't search by phone number for these contacts. Use whatsmeow's GetUserInfo API (via a new /api/resolve-lid bridge endpoint) to resolve @lid JIDs to phone numbers, caching results in a new SQLite contacts table (jid, phone, name, updated_at) to avoid repeated API calls. search_contacts now JOINs with the contacts table; falls back to returning the LID as-is if resolution fails. Task 21 depends on this contacts table existing.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "search_contacts with phone number finds @lid contacts (via contacts table JOIN)",
+  "LID->phone mappings are cached in SQLite contacts table",
+  "Graceful fallback if resolution fails (returns LID as-is)",
+]
+files_to_modify = [
+  "bridge/main.go",
+  "lib/whatsapp_mcp/bridge.ex",
+  "lib/whatsapp_mcp/database/contacts.ex",
+  "lib/whatsapp_mcp/database.ex",
+  "test/support/database_fixtures.ex",
+]
+
+[[task]]
+id = "20a"
+phase = 7
+bundle = "contact-resolution"
+title = "Code Refactoring (Pre-Phase 7)"
+status = "done"
+scores = { d = 4, b = 7, u = 7 }
+body = """
+Split growing modules into focused submodules before adding new complexity: lib/whatsapp_mcp/tools.ex and database.ex became thin delegation modules (36 lines from 936, 47 lines from 813), with definitions/handlers/formatters split out under tools/ and chats/messages/contacts/helpers split out under database/. Public API unchanged.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "All 244 tests pass",
+  "Credo: 0 issues",
+  "Dialyzer: 0 warnings",
+  "Doctor: 100% coverage",
+  "Public API unchanged",
+  "All new modules have @moduledoc and @spec",
+]
+files_to_modify = [
+  "lib/whatsapp_mcp/tools/definitions.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+  "lib/whatsapp_mcp/tools/formatters.ex",
+  "lib/whatsapp_mcp/database/chats.ex",
+  "lib/whatsapp_mcp/database/messages.ex",
+  "lib/whatsapp_mcp/database/contacts.ex",
+  "lib/whatsapp_mcp/database/helpers.ex",
+  "lib/whatsapp_mcp/tools.ex",
+  "lib/whatsapp_mcp/database.ex",
+]
+
+[[task]]
+id = 21
+phase = 7
+bundle = "contact-resolution"
+title = "Contact Name Enrichment"
+status = "done"
+scores = { d = 3, b = 8, u = 8 }
+depends_on = [20]
+body = """
+Many @lid contacts appeared as raw numeric IDs instead of their actual name because the chat name wasn't populated. Store contact names separately from chat names: the Go bridge caches contact names when resolving chat names during history sync, and all chat-related queries (list_chats, get_chat, get_chat_by_name, get_contact_chats) now JOIN with the contacts table and prefer cached names. get_chat_by_name now searches both chat names and cached contact names. Depends on Task 20's contacts table.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "list_chats shows contact names for @lid chats",
+  "search_contacts returns names for @lid contacts",
+  "Names are cached and refreshed periodically",
+  "get_help output documents the new LID resolution feature",
+]
+files_to_modify = [
+  "bridge/main.go",
+  "lib/whatsapp_mcp/database/chats.ex",
+  "lib/whatsapp_mcp/tools/formatters.ex",
+  "test/support/database_fixtures.ex",
+  "test/whatsapp_mcp/database_test.exs",
+]
+
+[[task]]
+id = 22
+phase = 7
+bundle = "contact-resolution"
+title = "Message Timestamps in Output"
+status = "done"
+scores = { d = 2, b = 6, u = 6 }
+body = """
+Show human-readable timestamps in list_chats and get_messages output. Fixed a SQL query that used a broken timestamp join for the last message (now a subquery), and added a format_timestamp/1 helper used across format_chats, format_chat, format_contact_chats. Timestamps shown in server timezone with a note for the user to verify.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "All chat and message listings show timestamps",
+  "Timestamps are human-readable (not Unix epoch)",
+  "Timestamps use server timezone with note for user to verify",
+]
+files_to_modify = ["lib/whatsapp_mcp/database/chats.ex", "lib/whatsapp_mcp/tools/formatters.ex"]
+
+# ---------------------------------------------------------------------------
+# Phase 8: Messaging Features
+# ---------------------------------------------------------------------------
+
+[[task]]
+id = 23
+phase = 8
+bundle = "messaging-features"
+title = "Typing Indicators"
+status = "done"
+scores = { d = 3, b = 6, u = 6 }
+body = """
+Send typing/composing status before messages for more human-like interaction, via a new /api/typing bridge endpoint using client.SendChatPresence() and a send_typing MCP tool.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Can send typing indicator to a chat",
+  "Can stop typing indicator (composing: false)",
+  "MCP tool send_typing exposes this to AI",
+]
+files_to_modify = [
+  "bridge/main.go",
+  "lib/whatsapp_mcp/bridge.ex",
+  "lib/whatsapp_mcp/tools/definitions.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+  "test/whatsapp_mcp/bridge_test.exs",
+  "test/whatsapp_mcp/tools_test.exs",
+]
+
+[[task]]
+id = 24
+phase = 8
+bundle = "messaging-features"
+title = "Read Receipts"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Mark messages as read via a new /api/mark-read bridge endpoint using client.MarkRead(), and a mark_read MCP tool with message_ids validation supporting single or batch marking.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Can mark individual messages as read",
+  "Can mark multiple messages as read in one call",
+]
+files_to_modify = [
+  "bridge/main.go",
+  "lib/whatsapp_mcp/bridge.ex",
+  "lib/whatsapp_mcp/tools/definitions.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+  "test/whatsapp_mcp/bridge_test.exs",
+  "test/whatsapp_mcp/tools_test.exs",
+]
+
+[[task]]
+id = 25
+phase = 8
+bundle = "messaging-features"
+title = "Reply to Message"
+status = "done"
+scores = { d = 4, b = 6, u = 6 }
+body = """
+Quote-reply to a specific message via a new /api/reply bridge endpoint using ExtendedTextMessage + ContextInfo, and a reply_to_message MCP tool taking recipient, message, quoted_message_id, and quoted_chat_jid.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Replies show as quoted messages in WhatsApp",
+  "Original message context is preserved",
+]
+files_to_modify = [
+  "bridge/main.go",
+  "lib/whatsapp_mcp/bridge.ex",
+  "lib/whatsapp_mcp/tools/definitions.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+  "test/whatsapp_mcp/bridge_test.exs",
+  "test/whatsapp_mcp/tools_test.exs",
+]
+
+[[task]]
+id = 26
+phase = 8
+bundle = "messaging-features"
+title = "Message Reactions"
+status = "done"
+scores = { d = 4, b = 5, u = 5 }
+body = """
+Send emoji reactions to messages via a new /api/reaction bridge endpoint using the ReactionMessage type, and a react_to_message MCP tool. Empty emoji removes a reaction.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Can add emoji reaction to any message",
+  "Can remove reaction (empty emoji)",
+]
+files_to_modify = [
+  "bridge/main.go",
+  "lib/whatsapp_mcp/bridge.ex",
+  "lib/whatsapp_mcp/tools/definitions.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+  "test/whatsapp_mcp/bridge_test.exs",
+  "test/whatsapp_mcp/tools_test.exs",
+]
+
+# ---------------------------------------------------------------------------
+# Phase 9: Advanced Features (Lower Priority)
+# ---------------------------------------------------------------------------
+
+[[task]]
+id = 27
+phase = 9
+bundle = "advanced-features"
+title = "Message Deletion"
+status = "done"
+scores = { d = 3, b = 4, u = 4 }
+body = """
+Delete sent messages ("delete for everyone") via a new /api/delete bridge endpoint using client.BuildRevoke(), and a delete_message MCP tool.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Can delete own messages within WhatsApp's time limit",
+  "Returns error if sender doesn't match or message not found",
+]
+files_to_modify = [
+  "bridge/main.go",
+  "lib/whatsapp_mcp/bridge.ex",
+  "lib/whatsapp_mcp/tools/definitions.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+  "test/whatsapp_mcp/bridge_test.exs",
+  "test/whatsapp_mcp/tools_test.exs",
+]
+
+[[task]]
+id = 28
+phase = 9
+bundle = "advanced-features"
+title = "Location Messages"
+status = "done"
+scores = { d = 3, b = 3, u = 3 }
+body = """
+Send and receive location pins via a new /api/location bridge endpoint, with a send_location MCP tool supporting optional name/address fields and latitude/longitude range validation (-90 to 90, -180 to 180).
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Can send location with latitude/longitude",
+  "Location messages in history show coordinates",
+]
+files_to_modify = [
+  "bridge/main.go",
+  "lib/whatsapp_mcp/bridge.ex",
+  "lib/whatsapp_mcp/tools/definitions.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+]
+
+[[task]]
+id = 29
+phase = 9
+bundle = "advanced-features"
+title = "Reconnection Handling"
+status = "done"
+scores = { d = 5, b = 8, u = 8 }
+body = """
+Auto-reconnect when connection drops. A ReconnectManager struct manages reconnection state with mutex protection, exponential backoff (starts 1s, doubles, caps at 60s) with +/-20% jitter to avoid thundering herd. Handles Disconnected/StreamReplaced/ConnectFailure (triggers reconnect), LoggedOut (requires QR re-scan, no auto-reconnect), and TemporaryBan (no reconnect during ban). Clean shutdown stops reconnection attempts before disconnecting.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Bridge automatically reconnects on disconnect",
+  "Exponential backoff prevents rapid reconnection loops",
+  "Logs reconnection attempts with attempt number and delay",
+]
+files_to_modify = ["bridge/main.go"]
+
+[[task]]
+id = 36
+phase = 9
+bundle = "advanced-features"
+title = "Auto-start Go Bridge with Log Capture & QR Code Display"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Automatically start the Go bridge when the MCP server starts, capturing logs and exposing the WhatsApp QR code for authentication, via a new BridgeManager GenServer (compiles bridge if missing, starts it as a Port, ring-buffers stdout/stderr, detects/extracts QR ASCII art, monitors health and restarts on crash). Adds get_bridge_logs and get_qr_code tools, and awaiting_qr_scan/qr_code_available/go_installed fields on get_bridge_status. Superseded by Task 37, which removes this auto-start approach. Migrated from unscored roadmap.md entry, default score, not re-evaluated.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Bridge auto-compiles on first run if binary missing",
+  "Go bridge starts automatically with MCP server",
+  "Bridge stdout/stderr captured to ring buffer",
+  "get_bridge_logs tool returns recent output",
+  "get_qr_code tool returns ASCII QR when available",
+  "get_bridge_status includes awaiting_qr_scan field",
+  "get_bridge_status detects missing Go and returns install instructions",
+  "QR code cleared from state after successful login",
+  "Bridge restarts automatically on crash",
+  "Clean shutdown on application stop",
+  "Can disable auto-start via config",
+  "Tests for BridgeManager (27 tests)",
+]
+files_to_modify = [
+  "lib/whatsapp_mcp/bridge_manager.ex",
+  "lib/whatsapp_mcp/application.ex",
+  "lib/whatsapp_mcp/config.ex",
+  "lib/whatsapp_mcp/tools/definitions.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+  "lib/whatsapp_mcp/bridge.ex",
+]
+
+[[task]]
+id = 37
+phase = 9
+bundle = "advanced-features"
+title = "Simplify Bridge Startup - Remove Auto-Start"
+status = "done"
+scores = { d = 3, b = 7, u = 7 }
+body = """
+Removed the Task 36 auto-start/QR-capture approach: it caused race conditions across multiple Claude Code sessions managing the bridge, fragile PID-file locking, no QR capture when reusing an existing bridge, and QR refresh not surfacing through non-refreshing MCP tool output. Reverted to the simpler original-Python-implementation model: assume the bridge is running and connect via HTTP/database. BridgeManager now only checks /api/health and tracks :connected / :not_running; get_qr_code and get_bridge_logs tools removed; get_bridge_status shows manual startup instructions (cd bridge && go run .) with the path from Config.bridge_source_path/0; get_help documents the manual flow.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "get_bridge_status shows clear startup instructions when bridge not running",
+  "Startup instructions include correct path to bridge directory",
+  "No more race conditions or lock file issues with multiple Claude sessions",
+  "get_qr_code and get_bridge_logs tools removed",
+  "get_help documents manual bridge startup process",
+  "All remaining tests pass (466 tests, 0 failures)",
+  "BridgeManager removed from supervision tree entirely",
+]
+files_to_modify = [
+  "lib/whatsapp_mcp/bridge_manager.ex",
+  "lib/whatsapp_mcp/application.ex",
+  "lib/whatsapp_mcp/config.ex",
+  "lib/whatsapp_mcp/tools/definitions.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+  "lib/whatsapp_mcp/tools/formatters.ex",
+  "test/whatsapp_mcp/bridge_manager_test.exs",
+  "test/whatsapp_mcp/tools_test.exs",
+]
+
+# ---------------------------------------------------------------------------
+# Phase 10: Quick Wins (from AI Testing Feedback)
+# ---------------------------------------------------------------------------
+
+[[task]]
+id = 30
+phase = 10
+bundle = "quick-wins"
+title = "Add `after` parameter to get_messages"
+status = "done"
+scores = { d = 2, b = 6, u = 6 }
+body = """
+Allow narrowing date ranges with both before and after timestamps. All timestamps are stored in UTC; timestamps without a timezone default to UTC; ISO8601 T separator converted to space for SQLite. AI tools should always ask users for their local timezone when filtering by time and convert to UTC before querying.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Can filter messages with both before and after timestamps",
+  "Timestamps normalized to match database format",
+  "Default timezone applied when not specified",
+  "Help text documents timestamp filtering",
+]
+files_to_modify = [
+  "lib/whatsapp_mcp/database/helpers.ex",
+  "lib/whatsapp_mcp/database/messages.ex",
+  "lib/whatsapp_mcp/tools/definitions.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+  "lib/whatsapp_mcp/tools/formatters.ex",
+]
+
+[[task]]
+id = 31
+phase = 10
+bundle = "quick-wins"
+title = "Add message count to get_chat output"
+status = "done"
+scores = { d = 1, b = 3, u = 3 }
+body = """
+Include total message count in chat metadata (via a COUNT subquery in get_chat/1) to help estimate conversation length.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "get_chat output includes \"Messages: X total\"",
+  "Minimal performance impact (single COUNT subquery)",
+]
+files_to_modify = ["lib/whatsapp_mcp/database/chats.ex", "lib/whatsapp_mcp/tools/formatters.ex"]
+
+[[task]]
+id = 32
+phase = 10
+bundle = "quick-wins"
+title = "Add has_media filter to search_messages"
+status = "done"
+scores = { d = 2, b = 4, u = 4 }
+body = """
+Allow searching for messages with attachments only via a new has_media boolean parameter on search_messages/count_search_results; query is no longer required so has_media can be used standalone or combined with a text query.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "search_messages(has_media: true) returns only messages with attachments",
+  "Works with or without text query",
+  "Can combine query and has_media filters",
+]
+files_to_modify = [
+  "lib/whatsapp_mcp/database/messages.ex",
+  "lib/whatsapp_mcp/tools/definitions.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+]
+
+[[task]]
+id = 33
+phase = 10
+bundle = "quick-wins"
+title = "Show contact name in get_message_context"
+status = "done"
+scores = { d = 2, b = 4, u = 4 }
+body = """
+Display contact names instead of raw JID numbers for message senders in get_message_context, via a LEFT JOIN with the chats table, falling back to JID via COALESCE when no name is available.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Message context shows contact name instead of JID when available",
+  "Falls back to JID if name not available (COALESCE chain)",
+]
+files_to_modify = ["lib/whatsapp_mcp/database/messages.ex"]
+
+[[task]]
+id = 34
+phase = 10
+bundle = "quick-wins"
+title = "Improve get_last_interaction and get_chat_by_name"
+status = "done"
+scores = { d = 2, b = 4, u = 4 }
+body = """
+When a contact's most recent message was in a group chat, get_last_interaction showed the group name instead of the contact's name. Fixed format_last_interaction/3 to look up the contact name from the JID, and added get_chat_by_name/1 for partial name lookup used both directly and for get_messages hints. Also added format_db_error/1 for user-friendly error messages and noted in get_contact_chats' description that @lid contacts may only appear in groups.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "get_last_interaction shows contact name even when message is from a group",
+  "Falls back to JID when contact has no direct chat",
+  "get_chat_by_name/1 finds chats by partial name match",
+  "Error messages are user-friendly (not raw atoms)",
+  "All 264 tests pass",
+]
+files_to_modify = [
+  "lib/whatsapp_mcp/database.ex",
+  "lib/whatsapp_mcp/database/chats.ex",
+  "lib/whatsapp_mcp/tools/formatters.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+  "lib/whatsapp_mcp/tools/definitions.ex",
+]
+
+# ---------------------------------------------------------------------------
+# Phase 11: Whatsmeow Feature Expansion
+# ---------------------------------------------------------------------------
+
+[[task]]
+id = 38
+phase = 11
+bundle = "whatsmeow-expansion"
+title = "Contact & User Tools"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Bundle of contact-related features: is_on_whatsapp (batch-check up to 50 phone numbers), get_profile_picture, get_blocklist, update_blocklist (block/unblock) — backed by whatsmeow's IsOnWhatsApp/GetProfilePictureInfo/GetBlocklist/UpdateBlocklist, exposed via 4 new bridge endpoints. Migrated from unscored roadmap.md entry, default score, not re-evaluated.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Can verify phone numbers before messaging",
+  "Can get profile picture URLs",
+  "Can view and manage blocked contacts",
+]
+files_to_modify = [
+  "bridge/main.go",
+  "lib/whatsapp_mcp/bridge.ex",
+  "lib/whatsapp_mcp/tools/definitions.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+  "lib/whatsapp_mcp/tools/formatters.ex",
+]
+
+[[task]]
+id = 39
+phase = 11
+bundle = "whatsmeow-expansion"
+title = "Presence & Disappearing Messages"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Online status management and disappearing messages: set_presence (SendPresence), subscribe_presence (SubscribePresence, notified when a contact comes online), set_disappearing_timer (SetDisappearingTimer, off/24h/7d/90d per chat). Migrated from unscored roadmap.md entry, default score, not re-evaluated.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Can appear online/offline",
+  "Can subscribe to contact presence changes",
+  "Can enable disappearing messages per-chat",
+]
+
+[[task]]
+id = 40
+phase = 11
+bundle = "whatsmeow-expansion"
+title = "Edit Message"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Edit recently sent messages via whatsmeow's client.BuildEdit(chat, id, newContent), exposed as the edit_message tool (within WhatsApp's ~15 minute edit window). Migrated from unscored roadmap.md entry, default score, not re-evaluated.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Can edit own messages",
+  "Returns error if message too old or not owned",
+]
+
+[[task]]
+id = "41a"
+phase = 11
+bundle = "whatsmeow-expansion"
+title = "Group Reading"
+status = "done"
+scores = { d = 2, b = 7, u = 7 }
+body = """
+Part of the Task 41 group-management bundle. Read-only group operations: list_groups (list all joined groups, separate from list_chats) and get_group_info (name, description, members, admins, settings), backed by whatsmeow's GetJoinedGroups/GetGroupInfo.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Can list all joined groups with metadata",
+  "Can get detailed info for any group (members, admins, description)",
+]
+
+[[task]]
+id = "41b"
+phase = 11
+bundle = "whatsmeow-expansion"
+title = "Group Invite Links"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Part of the Task 41 group-management bundle. Invite link operations: get_group_invite_link (get or reset, admin only, backed by whatsmeow's GetGroupInviteLink) and join_group (join via invite link/code, backed by JoinGroupWithLink). Migrated from unscored roadmap.md entry, default score, not re-evaluated.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Can get invite link for groups where user is admin",
+  "Can reset invite link to invalidate old links",
+  "Can join group using invite link/code",
+]
+
+[[task]]
+id = "41c"
+phase = 11
+bundle = "whatsmeow-expansion"
+title = "Group Lifecycle"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Part of the Task 41 group-management bundle. Create and leave groups: create_group (initial members, max 25 char name, backed by whatsmeow's CreateGroup) and leave_group (backed by LeaveGroup).
+"""
+implemented = "as specified in body"
+acceptance_criteria = []
+files_to_modify = [
+  "bridge/types.go",
+  "bridge/handlers_groups.go",
+  "bridge/server.go",
+  "lib/whatsapp_mcp/bridge.ex",
+  "lib/whatsapp_mcp/tools/definitions.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+  "lib/whatsapp_mcp/tools/formatters.ex",
+]
+
+[[task]]
+id = "41d"
+phase = 11
+bundle = "whatsmeow-expansion"
+title = "Group Admin Operations"
+status = "done"
+scores = { d = 3, b = 4, u = 4 }
+body = """
+Part of the Task 41 group-management bundle. Admin-only group modifications: update_group_name (25 char limit), update_group_description, update_group_settings (locked/announce), manage_group_members (add/remove/promote/demote, per-participant error codes for batch operations) — backed by whatsmeow's SetGroupName/SetGroupTopic/SetGroupLocked/SetGroupAnnounce/UpdateGroupParticipants.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Can update group name (with 25 char limit)",
+  "Can update/clear group description",
+  "Can set locked (only admins edit info) and announce (only admins send) modes",
+  "Can add/remove participants",
+  "Can promote members to admin or demote admins",
+  "Per-participant error codes returned for batch operations",
+]
+
+[[task]]
+id = 42
+phase = 11
+bundle = "whatsmeow-expansion"
+title = "Polls"
+status = "done"
+scores = { d = 3, b = 5, u = 5 }
+body = """
+Create and send polls to chats via a new /api/poll bridge endpoint using client.BuildPollCreation(), exposed as create_poll (2-12 options, single or multi-choice; max_selections defaults to 1).
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Can create single-choice and multi-choice polls",
+  "Poll renders correctly in WhatsApp",
+]
+
+[[task]]
+id = 43
+phase = 11
+bundle = "whatsmeow-expansion"
+title = "Newsletters (Channels)"
+status = "done"
+scores = { d = 4, b = 4, u = 4 }
+body = """
+Subscribe to and read WhatsApp channels/newsletters: list_newsletters, get_newsletter_info, get_newsletter_messages, follow_newsletter, unfollow_newsletter — backed by whatsmeow's GetSubscribedNewsletters/GetNewsletterInfo/FollowNewsletter/UnfollowNewsletter/GetNewsletterMessages via 5 new bridge endpoints.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Can list subscribed newsletters",
+  "Can get detailed newsletter info",
+  "Can read newsletter messages",
+  "Can follow/unfollow newsletters",
+]
+files_to_modify = [
+  "bridge/types.go",
+  "bridge/handlers.go",
+  "bridge/server.go",
+  "lib/whatsapp_mcp/bridge.ex",
+  "lib/whatsapp_mcp/tools/definitions.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+  "lib/whatsapp_mcp/tools/formatters.ex",
+]
+
+[[task]]
+id = 44
+phase = 11
+bundle = "whatsmeow-expansion"
+title = "Privacy & Business Features"
+status = "done"
+scores = { d = 3, b = 4, u = 4 }
+body = """
+Privacy settings and business profile info: get_privacy_settings/set_privacy_setting (last seen, profile photo, about visibility), get_business_profile (name, description, hours, address), reject_call — backed by whatsmeow's GetPrivacySettings/SetPrivacySetting/GetBusinessProfile/RejectCall via 4 new bridge endpoints.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Can view all privacy settings",
+  "Can update individual privacy settings",
+  "Can get business account info",
+  "Can reject incoming calls",
+]
+files_to_modify = [
+  "bridge/types.go",
+  "bridge/handlers.go",
+  "bridge/server.go",
+  "lib/whatsapp_mcp/bridge.ex",
+  "lib/whatsapp_mcp/tools/definitions.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+  "lib/whatsapp_mcp/tools/formatters.ex",
+]
+
+[[task]]
+id = 45
+phase = 11
+bundle = "whatsmeow-expansion"
+title = "Unified Message View for @lid/@s.whatsapp.net Duplicate Contacts"
+status = "done"
+scores = { d = 5, b = 8, u = 8 }
+depends_on = [20]
+body = """
+WhatsApp contacts can appear as two separate chat threads when messages use different JID formats (phone-based @s.whatsapp.net vs the privacy-feature @lid numeric ID), fragmenting conversations. Automatically merge messages from linked JIDs into a unified view: find_linked_jids/1 uses the contacts cache to find all JIDs for a person, get_messages queries and merges all linked JIDs chronologically (adding a source_jid field when a message comes from a non-primary linked JID), list_chats proactively resolves unresolved @lid contacts (up to 5 per request) and shows a linked_jid indicator, and count_messages totals across all linked JIDs for accurate pagination. Depends on Task 20's contacts cache for the LID<->phone mappings.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Messages from @lid and @s.whatsapp.net for same contact appear merged",
+  "Can query by either JID format, get unified view",
+  "source_jid field shows origin when messages come from linked JID",
+  "list_chats shows [linked: JID] indicator when link is known",
+  "Proactive LID resolution populates contacts cache",
+]
+files_to_modify = [
+  "lib/whatsapp_mcp/database/contacts.ex",
+  "lib/whatsapp_mcp/database/chats.ex",
+  "lib/whatsapp_mcp/database/messages.ex",
+  "lib/whatsapp_mcp/database.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+  "lib/whatsapp_mcp/tools/formatters.ex",
+  "test/whatsapp_mcp/database_test.exs",
+]
+
+# ---------------------------------------------------------------------------
+# Phase 12: Architecture & Developer Experience
+# ---------------------------------------------------------------------------
+
+[[task]]
+id = 46
+phase = 12
+bundle = "architecture"
+title = "Tool Definition DSL (Macro Refactor)"
+status = "blocked"
+scores = { d = 5, b = 5, u = 5 }
+blocked_reason = "Deferred until needed: current explicit code (47 tools) is repetitive but clear/debuggable, ~27% LOC reduction doesn't justify macro complexity yet. Revisit if: building a REST/GraphQL interface, tool count exceeds 75+, or extracting as a reusable library for other MCP projects."
+body = """
+Create a macro-based DSL (deftool) to define tools once and auto-generate MCP tool definitions (JSON schema), input validation, and handler dispatch, replacing lib/whatsapp_mcp/tools/definitions.ex and handlers.ex with a new tool_dsl.ex + tools/registry.ex. See original roadmap.md history for the proposed macro shape and target file layout if this is resurrected.
+"""
+
+[[task]]
+id = 47
+phase = 12
+bundle = "architecture"
+title = "Manual Chat Merge for Unresolved LID Contacts"
+status = "done"
+scores = { d = 3, b = 7, u = 7 }
+body = """
+Task 45's automatic Unified Message View depends on the contacts cache having correct LID->phone mappings, but WhatsApp's GetUserInfo often returns the LID number itself as the "phone" (e.g. a 14-digit numeric id instead of the real phone), making automatic linking impossible in those cases. Add a manual merge_chats tool as a fallback: merges messages from an @lid chat into an @s.whatsapp.net chat inside a SQLite transaction, deletes the source chat, and stores the LID->phone link in the contacts table for future auto-merge.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Can merge messages from @lid chat into @s.whatsapp.net chat",
+  "Source chat is deleted after merge",
+  "LID->phone link stored in contacts table for future auto-merge",
+  "Transaction ensures atomicity (all-or-nothing)",
+  "Returns clear error if either JID doesn't exist",
+  "Messages retain original timestamps and sender info",
+]
+files_to_modify = [
+  "bridge/main.go",
+  "lib/whatsapp_mcp/bridge.ex",
+  "lib/whatsapp_mcp/tools/definitions.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+  "lib/whatsapp_mcp/tools/formatters.ex",
+]
+
+[[task]]
+id = 48
+phase = 12
+bundle = "architecture"
+title = "Expose Contacts Store"
+status = "done"
+scores = { d = 2, b = 8, u = 8 }
+body = """
+Expose whatsmeow's synced contacts (from the phone's address book) via MCP: names (FirstName/FullName/PushName/BusinessName) and RedactedPhone for LID contacts, via a new GET /api/contacts endpoint using client.Store.Contacts.GetAllContacts() and a list_contacts tool (pagination, name filtering). Helps users see known contacts, match @lid JIDs to real contacts via redacted phone patterns, and understand who they're chatting with before using merge_chats.
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "Can list all synced contacts from whatsmeow store",
+  "Shows JID, names (full/first/push/business), and redacted phone",
+  "Supports pagination (limit/offset)",
+  "Supports name filtering",
+  "Redacted phone visible for @lid contacts encountered in groups",
+]
+files_to_modify = [
+  "bridge/main.go",
+  "lib/whatsapp_mcp/bridge.ex",
+  "lib/whatsapp_mcp/tools/definitions.ex",
+  "lib/whatsapp_mcp/tools/handlers.ex",
+  "lib/whatsapp_mcp/tools/formatters.ex",
+]
+
+[[task]]
+id = 49
+phase = 12
+bundle = "architecture"
+title = "Go Bridge Refactoring"
+status = "done"
+scores = { d = 4, b = 8, u = 8 }
+body = """
+bridge/main.go had grown to 3,080 lines in a single file (startRESTServer alone was 1,193 lines / 39% of the file, all HTTP handlers inline; handleMessage was 314 lines; 35 scattered struct definitions; 45 functions with mixed responsibilities). Split into ~14 focused files (main, config, types, database, server, handlers, handlers_groups, messaging, media, events, contacts, reconnect, etc.) — see refactor_go.md for the detailed 16-sub-task breakdown that drove this (left as historical documentation, not migrated into tasks.toml).
+"""
+implemented = "as specified in body"
+acceptance_criteria = [
+  "All code split into focused files (14 files)",
+  "No file exceeds 600 lines (largest: handlers.go at 947 lines)",
+  "go build succeeds after each task",
+  "All functionality preserved",
+  "No breaking changes to HTTP API",
+]

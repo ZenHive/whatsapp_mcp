@@ -46,22 +46,22 @@ defmodule WhatsappMcp.MixProject do
 
   defp deps do
     [
-      {:exqlite, "== 0.37.0"},
-      {:jason, "== 1.4.5"},
-      {:req, "== 0.6.1"},
-      {:plug, "== 1.19.2", only: [:dev, :test]},
+      {:exqlite, "~> 0.38"},
+      {:jason, "~> 1.4"},
+      {:req, "~> 0.6"},
+      {:plug, "~> 1.20", only: [:dev, :test]},
 
       # Dev/test
-      {:ex_unit_json, "== 0.5.0", only: [:dev, :test], runtime: false},
-      {:tidewave, "== 0.6.0", only: :dev},
-      {:bandit, "== 1.12.0", only: :dev},
-      {:ex_doc, "== 0.40.3", only: :dev, runtime: false},
-      {:styler, "== 1.11.0", only: [:dev, :test], runtime: false},
-      {:credo, "== 1.7.19", only: [:dev, :test], runtime: false},
-      {:sobelow, "== 0.14.1", only: [:dev, :test], runtime: false},
-      {:doctor, "== 0.23.0", only: [:dev, :test], runtime: false},
-      {:dialyxir, "== 1.4.7", only: [:dev, :test], runtime: false},
-      {:dialyzer_json, "== 0.2.1", only: [:dev, :test], runtime: false}
+      {:ex_unit_json, "~> 0.6", only: [:dev, :test], runtime: false},
+      {:tidewave, "~> 0.6", only: :dev},
+      {:bandit, "~> 1.12", only: :dev},
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false},
+      {:styler, "~> 1.11", only: [:dev, :test], runtime: false},
+      {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
+      {:sobelow, "~> 0.14", only: [:dev, :test], runtime: false},
+      {:doctor, "~> 0.23", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:dialyzer_json, "~> 0.2", only: [:dev, :test], runtime: false}
     ]
   end
 
